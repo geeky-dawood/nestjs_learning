@@ -23,7 +23,8 @@ export class AuthService {
       if (!user || user.isDeleted) {
         throw new ConflictException('User not found.');
       }
-
+      //This is from CHATGPT
+      //
       if (user.lock_until && user.lock_until > new Date()) {
         const remaining = Math.ceil(
           (user.lock_until.getTime() - Date.now()) / 1000,
@@ -32,6 +33,7 @@ export class AuthService {
           `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
         );
       }
+      //
 
       const isPasswordValid = await verifyHashPassword(
         user.password,
@@ -71,7 +73,10 @@ export class AuthService {
           where: { id: user.id },
           data: {
             is_Locked: true,
-            lock_until: new Date(Date.now() + 60 * 1000), // lock for 1 minute
+            lock_until: new Date(
+              Date.now() +
+                Number(process.env.MAX_WRONG_ATTEMPTS_TIME_FRAME) * 1000,
+            ),
           },
         });
         throw new ForbiddenException(
