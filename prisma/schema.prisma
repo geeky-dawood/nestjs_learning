@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String    @id @default(uuid())
+  name            String
+  email           String    @unique
+  dob             DateTime?
+  password        String
+  profile_picture String?
+  isDeleted       Boolean   @default(false)
+  isVerified      Boolean   @default(false)
+
+  wrong_attempts Int       @default(0)
+  is_Locked      Boolean   @default(false)
+  lock_until     DateTime?
+
+  address Address[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Address {
+  id             String  @id @default(uuid())
+  latitude       Float
+  longitude      Float
+  country        String
+  city           String
+  state          String
+  zip_code       String
+  address        String
+  address_line_1 String?
+  address_line_2 String?
+  tag            String?
+
+  isDeleted  Boolean @default(false)
+  isVerified Boolean @default(false)
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("address")
+}
