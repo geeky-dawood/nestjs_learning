@@ -99,6 +99,10 @@ export class AuthService {
         },
       });
 
+      // const alreadyUser = await this.prisma.$queryRaw<
+      //   { email: string }[]
+      // >`SELECT email from "users" where email  = ${payload.email}`;
+
       console.log('------------', alreadyUser);
 
       if (alreadyUser) {
@@ -107,6 +111,12 @@ export class AuthService {
 
       const originalPassword = payload.password;
       const hash = await hashpassword(originalPassword);
+
+      // const user1 = await this.prisma.$queryRaw<
+      //   {
+      //     payload: SignupDto;
+      //   }[]
+      // >`insert ${payload} in  `;
 
       const user = await this.prisma.user.create({
         data: {

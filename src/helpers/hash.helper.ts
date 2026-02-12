@@ -1,4 +1,3 @@
-import { UnauthorizedException } from '@nestjs/common';
 import argon2 from 'argon2';
 
 async function hashpassword(password: string) {
