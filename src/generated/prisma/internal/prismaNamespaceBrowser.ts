@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   User: 'User',
+  LoginAttempts: 'LoginAttempts',
   Address: 'Address'
 } as const
 
@@ -88,6 +89,18 @@ export const UserScalarFieldEnum = {
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const LoginAttemptsScalarFieldEnum = {
+  id: 'id',
+  reason: 'reason',
+  attempt_success: 'attempt_success',
+  createAt: 'createAt',
+  updatedAt: 'updatedAt',
+  user_id: 'user_id'
+} as const
+
+export type LoginAttemptsScalarFieldEnum = (typeof LoginAttemptsScalarFieldEnum)[keyof typeof LoginAttemptsScalarFieldEnum]
 
 
 export const AddressScalarFieldEnum = {

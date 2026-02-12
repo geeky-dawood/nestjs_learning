@@ -385,6 +385,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   User: 'User',
+  LoginAttempts: 'LoginAttempts',
   Address: 'Address'
 } as const
 
@@ -401,7 +402,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "address"
+    modelProps: "user" | "loginAttempts" | "address"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -476,6 +477,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.UserCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.UserCountAggregateOutputType> | number
+        }
+      }
+    }
+    LoginAttempts: {
+      payload: Prisma.$LoginAttemptsPayload<ExtArgs>
+      fields: Prisma.LoginAttemptsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.LoginAttemptsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.LoginAttemptsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>
+        }
+        findFirst: {
+          args: Prisma.LoginAttemptsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.LoginAttemptsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>
+        }
+        findMany: {
+          args: Prisma.LoginAttemptsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>[]
+        }
+        create: {
+          args: Prisma.LoginAttemptsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>
+        }
+        createMany: {
+          args: Prisma.LoginAttemptsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.LoginAttemptsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>[]
+        }
+        delete: {
+          args: Prisma.LoginAttemptsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>
+        }
+        update: {
+          args: Prisma.LoginAttemptsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>
+        }
+        deleteMany: {
+          args: Prisma.LoginAttemptsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.LoginAttemptsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.LoginAttemptsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>[]
+        }
+        upsert: {
+          args: Prisma.LoginAttemptsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LoginAttemptsPayload>
+        }
+        aggregate: {
+          args: Prisma.LoginAttemptsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLoginAttempts>
+        }
+        groupBy: {
+          args: Prisma.LoginAttemptsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LoginAttemptsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.LoginAttemptsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LoginAttemptsCountAggregateOutputType> | number
         }
       }
     }
@@ -609,6 +684,18 @@ export const UserScalarFieldEnum = {
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const LoginAttemptsScalarFieldEnum = {
+  id: 'id',
+  reason: 'reason',
+  attempt_success: 'attempt_success',
+  createAt: 'createAt',
+  updatedAt: 'updatedAt',
+  user_id: 'user_id'
+} as const
+
+export type LoginAttemptsScalarFieldEnum = (typeof LoginAttemptsScalarFieldEnum)[keyof typeof LoginAttemptsScalarFieldEnum]
 
 
 export const AddressScalarFieldEnum = {
@@ -821,6 +908,7 @@ export type PrismaClientOptions = ({
 }
 export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
+  loginAttempts?: Prisma.LoginAttemptsOmit
   address?: Prisma.AddressOmit
 }
 

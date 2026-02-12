@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -9,82 +10,197 @@ import { SignupDto } from 'src/dto/signup.dto';
 import { hashpassword, verifyHashPassword } from 'src/helpers/hash.helper';
 import { LoginDto } from 'src/dto/login.dto';
 import { generateToken } from 'src/utils/jwt.generator';
+import { log } from 'node:console';
 
 @Injectable()
 export class AuthService {
   constructor(private prisma: PrismaService) {}
 
+  //Old service of loginhandling in same table
+
+  // async login(payload: LoginDto) {
+  //   try {
+  //     const user = await this.prisma.user.findUnique({
+  //       where: { email: payload.email },
+  //     });
+
+  //     if (!user || user.isDeleted) {
+  //       throw new ConflictException('User not found.');
+  //     }
+  //     //This is from CHATGPT
+  //     //
+  // if (user.lock_until && user.lock_until > new Date()) {
+  //   const remaining = Math.ceil(
+  //     (user.lock_until.getTime() - Date.now()) / 1000,
+  //   );
+  //   throw new ForbiddenException(
+  //     `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
+  //   );
+  // }
+  //     //
+
+  // const isPasswordValid = await verifyHashPassword(
+  //   user.password,
+  //   payload.password,
+  // );
+
+  //     if (isPasswordValid) {
+  //       await this.prisma.user.update({
+  //         where: { id: user.id },
+  //         data: {
+  //           wrong_attempts: 0,
+  //           is_Locked: false,
+  //           lock_until: null,
+  //         },
+  //       });
+
+  //       const { password, ...result } = user;
+  //       const access_token = await generateToken(user);
+
+  //       return {
+  //         message: 'Login Successful',
+  //         data: { access_token, ...result },
+  //       };
+  //     }
+
+  //     const updatedUser = await this.prisma.user.update({
+  //       where: { id: user.id },
+  //       data: {
+  //         wrong_attempts: { increment: 1 },
+  //       },
+  //     });
+
+  //     if (
+  //       updatedUser.wrong_attempts >= Number(process.env.MAX_WRONG_ATTEMPTS)
+  //     ) {
+  //       await this.prisma.user.update({
+  //         where: { id: user.id },
+  //         data: {
+  //           is_Locked: true,
+  //           lock_until: new Date(
+  //             Date.now() +
+  //               Number(process.env.MAX_WRONG_ATTEMPTS_TIME_FRAME) * 1000,
+  //           ),
+  //         },
+  //       });
+  //       throw new ForbiddenException(
+  //         'Account locked due to multiple wrong attempts. Try after 1 minute.',
+  //       );
+  //     }
+
+  //     throw new UnauthorizedException('Email or Password is incorrect.');
+  //   } catch (error) {
+  //     console.log(error);
+  //     throw error;
+  //   }
+  // }
+
+  // new service with diferent tables
   async login(payload: LoginDto) {
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { email: payload.email },
+      const validUser = await this.prisma.user.findUnique({
+        where: {
+          email: payload.email,
+        },
       });
 
-      if (!user || user.isDeleted) {
-        throw new ConflictException('User not found.');
+      if (!validUser || validUser.isDeleted) {
+        throw new NotFoundException('User not found.');
       }
-      //This is from CHATGPT
-      //
-      if (user.lock_until && user.lock_until > new Date()) {
+
+      if (validUser.lock_until && validUser.lock_until > new Date()) {
         const remaining = Math.ceil(
-          (user.lock_until.getTime() - Date.now()) / 1000,
+          (validUser.lock_until.getTime() - Date.now()) / 1000,
         );
         throw new ForbiddenException(
-          `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
+          `Account locked due to multiple wrong attempts. Try after ${remaining / 60} minutes.`,
         );
       }
-      //
 
       const isPasswordValid = await verifyHashPassword(
-        user.password,
+        validUser.password,
         payload.password,
       );
 
       if (isPasswordValid) {
-        await this.prisma.user.update({
-          where: { id: user.id },
+        const accessToken = await generateToken(validUser);
+
+        const { password, ...result } = validUser;
+
+        log('------------------', accessToken);
+
+        await this.prisma.loginAttempts.create({
           data: {
-            wrong_attempts: 0,
+            reason: 'Correct Password',
+            user_id: validUser.id,
+            attempt_success: true,
+          },
+        });
+
+        await this.prisma.user.update({
+          where: {
+            id: validUser.id,
+          },
+          data: {
             is_Locked: false,
             lock_until: null,
           },
         });
 
-        const { password, ...result } = user;
-        const access_token = await generateToken(user);
-
         return {
           message: 'Login Successful',
-          data: { access_token, ...result },
+          data: {
+            access_token: accessToken,
+            ...result,
+          },
         };
       }
 
-      const updatedUser = await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          wrong_attempts: { increment: 1 },
+      //currently with 1 minute for testing purpose, can be changed to 15 minutes or as per requirement
+
+      const lastFifteenMinutes = new Date(Date.now() - 1 * 60 * 1000);
+      const freezForFifteenMinutes = new Date(Date.now() + 1 * 60 * 1000);
+
+      const totalWrongAttempts = await this.prisma.loginAttempts.findMany({
+        where: {
+          user_id: validUser.id,
+          attempt_success: false,
+          createAt: {
+            gte: lastFifteenMinutes,
+          },
+        },
+        take: 5,
+        orderBy: {
+          createAt: 'desc',
         },
       });
 
-      if (
-        updatedUser.wrong_attempts >= Number(process.env.MAX_WRONG_ATTEMPTS)
-      ) {
+      console.log('========', totalWrongAttempts.length);
+
+      await this.prisma.loginAttempts.create({
+        data: {
+          reason: 'In-Correct Password',
+          user_id: validUser.id,
+          attempt_success: false,
+        },
+      });
+
+      if (totalWrongAttempts.length >= Number(process.env.MAX_WRONG_ATTEMPTS)) {
         await this.prisma.user.update({
-          where: { id: user.id },
+          where: {
+            id: validUser.id,
+          },
           data: {
             is_Locked: true,
-            lock_until: new Date(
-              Date.now() +
-                Number(process.env.MAX_WRONG_ATTEMPTS_TIME_FRAME) * 1000,
-            ),
+            lock_until: freezForFifteenMinutes,
           },
         });
         throw new ForbiddenException(
-          'Account locked due to multiple wrong attempts. Try after 1 minute.',
+          'Account locked due to multiple wrong attempts.',
         );
       }
 
-      throw new UnauthorizedException('Email or Password is incorrect.');
+      throw new UnauthorizedException('Invalid Credentials');
     } catch (error) {
       console.log(error);
       throw error;
@@ -98,7 +214,7 @@ export class AuthService {
           email: payload.email,
         },
       });
-
+      //trying raw query
       // const alreadyUser = await this.prisma.$queryRaw<
       //   { email: string }[]
       // >`SELECT email from "users" where email  = ${payload.email}`;
