@@ -113,7 +113,7 @@ export class AuthService {
           (validUser.lock_until.getTime() - Date.now()) / 1000,
         );
         throw new ForbiddenException(
-          `Account locked due to multiple wrong attempts. Try after ${remaining / 60} minutes.`,
+          `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
         );
       }
 
