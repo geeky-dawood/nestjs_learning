@@ -24,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       },
     });
 
-    if (!user || user.isDeleted) {
+    if (!user || user.is_Deleted) {
       throw new UnauthorizedException('User not found');
     }
 

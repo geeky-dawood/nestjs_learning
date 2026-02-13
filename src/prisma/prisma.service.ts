@@ -8,7 +8,6 @@ export class PrismaService extends PrismaClient {
     const configs = {
       connectionString: config.get<string>('DATABASE_URL') ?? '',
     };
-    console.log('Database URL:', configs.connectionString);
     const adapter = new PrismaPg(configs, {
       onConnectionError(err) {
         Logger.error('Database connection error', err);

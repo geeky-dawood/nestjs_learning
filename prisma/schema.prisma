@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider     = "prisma-client"
   output       = "../src/generated/prisma"
@@ -14,6 +8,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum SigninResponseEnum {
+  PASSWORD_MATCHES
+  INVALID_PASSWORD
+}
+
 model User {
   id              String    @id @default(uuid())
   name            String
@@ -21,8 +20,8 @@ model User {
   dob             DateTime?
   password        String
   profile_picture String?
-  isDeleted       Boolean   @default(false)
-  isVerified      Boolean   @default(false)
+  is_Deleted      Boolean   @default(false)
+  is_Verified     Boolean   @default(false)
 
   wrong_attempts Int       @default(0)
   is_Locked      Boolean   @default(false)
@@ -38,15 +37,15 @@ model User {
 }
 
 model LoginAttempts {
-  id              String  @id @default(uuid())
-  reason          String
-  attempt_success Boolean @default(false)
-
-  createAt  DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String             @id @default(uuid())
+  reason          SigninResponseEnum
+  attempt_success Boolean            @default(false)
 
   user_id String
   user    User   @relation(fields: [user_id], references: [id])
+
+  createAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("loginAttempts")
 }
@@ -64,8 +63,8 @@ model Address {
   address_line_2 String?
   tag            String?
 
-  isDeleted  Boolean @default(false)
-  isVerified Boolean @default(false)
+  is_Deleted  Boolean @default(false)
+  is_Verified Boolean @default(false)
 
   user_id String
   user    User   @relation(fields: [user_id], references: [id])
