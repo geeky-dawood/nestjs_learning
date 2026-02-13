@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -9,101 +10,137 @@ import { SignupDto } from 'src/dto/signup.dto';
 import { hashpassword, verifyHashPassword } from 'src/helpers/hash.helper';
 import { LoginDto } from 'src/dto/login.dto';
 import { generateToken } from 'src/utils/jwt.generator';
+import { SigninResponseEnum } from 'src/generated/prisma/enums';
 
 @Injectable()
 export class AuthService {
   constructor(private prisma: PrismaService) {}
 
-  async login(payload: LoginDto) {
+  //----Signin
+  async signin(payload: LoginDto) {
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { email: payload.email },
+      const desiredEmailFormate = payload.email.toLowerCase();
+      const wrongAttemptTrackingTimeWindow = new Date(
+        Date.now() - 1 * 60 * 1000,
+      );
+      const accountLockoutDuration = new Date(Date.now() + 1 * 60 * 1000);
+
+      const validUser = await this.prisma.user.findUnique({
+        where: {
+          email: desiredEmailFormate,
+        },
       });
 
-      if (!user || user.isDeleted) {
-        throw new ConflictException('User not found.');
+      if (!validUser || validUser.is_Deleted) {
+        throw new NotFoundException('User not found.');
       }
-      //This is from CHATGPT
-      //
-      if (user.lock_until && user.lock_until > new Date()) {
+
+      if (validUser.lock_until && validUser.lock_until > new Date()) {
         const remaining = Math.ceil(
-          (user.lock_until.getTime() - Date.now()) / 1000,
+          (validUser.lock_until.getTime() - Date.now()) / 1000,
         );
         throw new ForbiddenException(
           `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
         );
       }
-      //
 
       const isPasswordValid = await verifyHashPassword(
-        user.password,
+        validUser.password,
         payload.password,
       );
 
-      if (isPasswordValid) {
-        await this.prisma.user.update({
-          where: { id: user.id },
+      //currently with 1 minute for testing purpose, can be changed to 15 minutes or as per requirement
+
+      if (!isPasswordValid) {
+        await this.prisma.loginAttempts.create({
           data: {
-            wrong_attempts: 0,
-            is_Locked: false,
-            lock_until: null,
+            reason: SigninResponseEnum.INVALID_PASSWORD,
+            user_id: validUser.id,
+            attempt_success: false,
           },
         });
 
-        const { password, ...result } = user;
-        const access_token = await generateToken(user);
+        const totalWrongAttempts = await this.prisma.loginAttempts.findMany({
+          where: {
+            user_id: validUser.id,
+            attempt_success: false,
+            createAt: {
+              gte: wrongAttemptTrackingTimeWindow,
+            },
+          },
+          take: 5,
+          orderBy: {
+            createAt: 'desc',
+          },
+        });
 
-        return {
-          message: 'Login Successful',
-          data: { access_token, ...result },
-        };
+        console.log('Wrong attempts:', totalWrongAttempts.length);
+
+        if (
+          totalWrongAttempts.length >= Number(process.env.MAX_WRONG_ATTEMPTS)
+        ) {
+          await this.prisma.user.update({
+            where: {
+              id: validUser.id,
+            },
+            data: {
+              is_Locked: true,
+              lock_until: accountLockoutDuration,
+            },
+          });
+          throw new ForbiddenException(
+            'Account locked due to multiple wrong attempts.',
+          );
+        }
+
+        throw new UnauthorizedException('Invalid Credentials');
       }
 
-      const updatedUser = await this.prisma.user.update({
-        where: { id: user.id },
+      const accessToken = await generateToken(validUser);
+
+      const { password, ...result } = validUser;
+
+      await this.prisma.loginAttempts.create({
         data: {
-          wrong_attempts: { increment: 1 },
+          reason: SigninResponseEnum.PASSWORD_MATCHES,
+          user_id: validUser.id,
+          attempt_success: true,
         },
       });
 
-      if (
-        updatedUser.wrong_attempts >= Number(process.env.MAX_WRONG_ATTEMPTS)
-      ) {
-        await this.prisma.user.update({
-          where: { id: user.id },
-          data: {
-            is_Locked: true,
-            lock_until: new Date(
-              Date.now() +
-                Number(process.env.MAX_WRONG_ATTEMPTS_TIME_FRAME) * 1000,
-            ),
-          },
-        });
-        throw new ForbiddenException(
-          'Account locked due to multiple wrong attempts. Try after 1 minute.',
-        );
-      }
+      await this.prisma.user.update({
+        where: {
+          id: validUser.id,
+        },
+        data: {
+          is_Locked: false,
+          lock_until: null,
+        },
+      });
 
-      throw new UnauthorizedException('Email or Password is incorrect.');
+      return {
+        message: 'Login Successful',
+        data: {
+          access_token: accessToken,
+          ...result,
+        },
+      };
     } catch (error) {
       console.log(error);
       throw error;
     }
   }
+  //----Signup
 
   async signup(payload: SignupDto) {
     try {
+      const desiredEmailFormate = payload.email.toLowerCase();
+
       const alreadyUser = await this.prisma.user.findUnique({
         where: {
-          email: payload.email,
+          email: desiredEmailFormate,
         },
       });
-
-      // const alreadyUser = await this.prisma.$queryRaw<
-      //   { email: string }[]
-      // >`SELECT email from "users" where email  = ${payload.email}`;
-
-      console.log('------------', alreadyUser);
 
       if (alreadyUser) {
         throw new ConflictException('User with this email already exist.');
@@ -112,16 +149,10 @@ export class AuthService {
       const originalPassword = payload.password;
       const hash = await hashpassword(originalPassword);
 
-      // const user1 = await this.prisma.$queryRaw<
-      //   {
-      //     payload: SignupDto;
-      //   }[]
-      // >`insert ${payload} in  `;
-
       const user = await this.prisma.user.create({
         data: {
           name: payload.name,
-          email: payload.email,
+          email: desiredEmailFormate,
           password: hash,
           dob: payload.dob,
           profile_picture: payload.profile_picture,

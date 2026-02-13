@@ -8,16 +8,15 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @HttpCode(200)
-  @Post('login')
-  login(@Body() body: LoginDto) {
-    return this.authService.login(body);
+  @Post('/signin')
+  signin(@Body() body: LoginDto) {
+    return this.authService.signin(body);
   }
 
   @HttpCode(201)
-  @Post('signup')
+  @Post('/signup')
   async signup(@Body() body: SignupDto) {
     const user = await this.authService.signup(body);
-
     return user;
   }
 }
