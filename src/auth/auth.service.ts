@@ -134,6 +134,7 @@ export class AuthService {
           password: hash,
           dob: payload.dob,
           profile_picture: payload.profile_picture,
+          role: payload.role,
         },
         omit: { password: true },
       });

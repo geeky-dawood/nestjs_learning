@@ -5,8 +5,8 @@ const jwtService = new JwtService({
 });
 
 function generateToken(user: any): Promise<string> {
-  const payload = { email: user.email, sub: user.id };
-  return jwtService.signAsync(payload, { expiresIn: '14d' });
+  const payload = { email: user.email, sub: user.id, role: user.role };
+  return jwtService.signAsync(payload, { expiresIn: '60s' });
 }
 
 export { generateToken };

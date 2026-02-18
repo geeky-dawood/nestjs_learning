@@ -13,6 +13,11 @@ enum SigninResponseEnum {
   INVALID_PASSWORD
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
 model User {
   id              String    @id @default(uuid())
   name            String
@@ -22,6 +27,7 @@ model User {
   profile_picture String?
   is_Deleted      Boolean   @default(false)
   is_Verified     Boolean   @default(false)
+  role            UserRole
 
   wrong_attempts Int       @default(0)
   is_Locked      Boolean   @default(false)

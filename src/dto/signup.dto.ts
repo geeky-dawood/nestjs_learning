@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
+import { UserRole } from 'src/generated/prisma/enums';
 
 export class SignupDto {
   @IsNotEmpty()
@@ -25,4 +26,7 @@ export class SignupDto {
   @IsOptional()
   @IsString()
   profile_picture: string;
+
+  @IsString()
+  role: UserRole;
 }
