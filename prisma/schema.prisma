@@ -50,6 +50,54 @@ model LoginAttempts {
   @@map("loginAttempts")
 }
 
+model Order {
+  id           String @id @default(uuid())
+  order_number Int
+  total_price  Int
+
+  items OrderItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@map("orders")
+}
+
+model Product {
+  id          String @id @default(uuid())
+  title       String
+  description String
+  price       Int
+  category    String
+  quantity    Int
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order   Order?  @relation(fields: [orderId], references: [id])
+  orderId String?
+
+  @@map("products")
+}
+
+model OrderItem {
+  id String @id @default(uuid())
+
+  orderId   String
+  productId String
+
+  quantity Int
+  price    Int
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
 model Address {
   id             String  @id @default(uuid())
   latitude       Float
