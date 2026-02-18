@@ -11,6 +11,7 @@ import { hashpassword, verifyHashPassword } from 'src/helpers/hash.helper';
 import { LoginDto } from 'src/dto/login.dto';
 import { generateToken } from 'src/utils/jwt.generator';
 import { SigninResponseEnum } from 'src/generated/prisma/enums';
+import { User } from 'src/generated/prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -52,13 +53,7 @@ export class AuthService {
       //currently with 1 minute for testing purpose, can be changed to 15 minutes or as per requirement
 
       if (!isPasswordValid) {
-        await this.prisma.loginAttempts.create({
-          data: {
-            reason: SigninResponseEnum.INVALID_PASSWORD,
-            user_id: validUser.id,
-            attempt_success: false,
-          },
-        });
+        this.failLoginAttempt(validUser);
 
         const totalWrongAttempts = await this.prisma.loginAttempts.findMany({
           where: {
@@ -94,37 +89,20 @@ export class AuthService {
         }
 
         throw new UnauthorizedException('Invalid Credentials');
+      } else {
+        const accessToken = await generateToken(validUser);
+        const { password, ...result } = validUser;
+
+        this.successtLoginAttempt(validUser);
+
+        return {
+          message: 'Login Successful',
+          data: {
+            access_token: accessToken,
+            ...result,
+          },
+        };
       }
-
-      const accessToken = await generateToken(validUser);
-
-      const { password, ...result } = validUser;
-
-      await this.prisma.loginAttempts.create({
-        data: {
-          reason: SigninResponseEnum.PASSWORD_MATCHES,
-          user_id: validUser.id,
-          attempt_success: true,
-        },
-      });
-
-      await this.prisma.user.update({
-        where: {
-          id: validUser.id,
-        },
-        data: {
-          is_Locked: false,
-          lock_until: null,
-        },
-      });
-
-      return {
-        message: 'Login Successful',
-        data: {
-          access_token: accessToken,
-          ...result,
-        },
-      };
     } catch (error) {
       console.log(error);
       throw error;
@@ -170,5 +148,35 @@ export class AuthService {
       console.log(error);
       throw error;
     }
+  }
+
+  private async failLoginAttempt(user: User) {
+    await this.prisma.loginAttempts.create({
+      data: {
+        reason: SigninResponseEnum.INVALID_PASSWORD,
+        user_id: user.id,
+        attempt_success: false,
+      },
+    });
+  }
+
+  private async successtLoginAttempt(user: User) {
+    await this.prisma.loginAttempts.create({
+      data: {
+        reason: SigninResponseEnum.PASSWORD_MATCHES,
+        user_id: user.id,
+        attempt_success: true,
+      },
+    });
+
+    await this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        is_Locked: false,
+        lock_until: null,
+      },
+    });
   }
 }
