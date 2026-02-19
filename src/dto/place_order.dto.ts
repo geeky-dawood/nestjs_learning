@@ -9,7 +9,7 @@ export class PlaceOrderDto {
 
 export class OrderProductDto {
   @IsString()
-  product_id: String;
+  product_id: string;
 
   @IsNumber()
   quantity: number;
