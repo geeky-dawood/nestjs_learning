@@ -1,3 +1,5 @@
+jest.mock('src/prisma/prisma.service');
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrderService } from './order.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -5,18 +7,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 describe('OrderService', () => {
   let service: OrderService;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrderService,
-        {
-          provide: PrismaService,
-          useValue: {
-            order: {
-              create: jest.fn(),
-            },
-          },
-        },
+        { provide: PrismaService, useValue: new (PrismaService as any)() },
       ],
     }).compile();
 
