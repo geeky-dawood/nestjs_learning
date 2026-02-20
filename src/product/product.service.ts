@@ -8,9 +8,7 @@ export class ProductService {
 
   async createProduct(payload: CreateProductDto) {
     const product = await this.prisma.product.create({
-      data: {
-        ...payload,
-      },
+      data: { ...payload },
     });
 
     return {
@@ -23,10 +21,6 @@ export class ProductService {
 
   async allProduct() {
     const products = await this.prisma.product.findMany({
-      omit: {
-        orderId: true,
-      },
-
       orderBy: {
         createdAt: 'desc',
       },

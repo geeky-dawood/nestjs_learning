@@ -49,8 +49,8 @@ export class OrderService {
             throw new BadRequestException('Product not found');
           }
           return {
-            orderId: order.id,
-            productId: product.id,
+            order_id: order.id,
+            product_id: product.id,
             quantity: item.quantity,
             price: product.price,
           };

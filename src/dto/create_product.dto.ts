@@ -1,7 +1,17 @@
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+} from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
+  @IsNotEmpty()
+  @Matches(/^\S.*$/, {
+    message: 'Title must not start with a space',
+  })
   title: string;
 
   @IsString()
@@ -12,7 +22,8 @@ export class CreateProductDto {
 
   @IsString()
   @IsOptional()
-  category: string;
+  @IsNotEmpty()
+  category?: string;
 
   @IsNumber()
   quantity: number;

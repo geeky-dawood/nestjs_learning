@@ -58,28 +58,24 @@ model Order {
 
   items OrderItem[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  products  Product[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("orders")
 }
 
 model Product {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   title       String
   description String
   price       Int
-  category    String
+  category    String?
   quantity    Int
 
-  items OrderItem[]
+  orders OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  order   Order?  @relation(fields: [orderId], references: [id])
-  orderId String?
 
   @@map("products")
 }
@@ -87,14 +83,14 @@ model Product {
 model OrderItem {
   id String @id @default(uuid())
 
-  orderId   String
-  productId String
+  order_id   String
+  product_id String
 
   quantity Int
   price    Int
 
-  order   Order   @relation(fields: [orderId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  order   Order   @relation(fields: [order_id], references: [id])
+  product Product @relation(fields: [product_id], references: [id])
 
   @@map("order_items")
 }
