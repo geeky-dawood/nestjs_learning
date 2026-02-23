@@ -12,7 +12,7 @@ export class SignupDto {
 
   @IsOptional()
   @IsDateString()
-  dob: Date;
+  dob?: Date;
 
   @IsNotEmpty()
   @IsString()
@@ -24,5 +24,5 @@ export class SignupDto {
 
   @IsOptional()
   @IsString()
-  profile_picture: string;
+  profile_picture?: string;
 }

@@ -1,7 +1,8 @@
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "cjs"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
 }
 
 datasource db {
@@ -48,6 +49,50 @@ model LoginAttempts {
   updatedAt DateTime @updatedAt
 
   @@map("loginAttempts")
+}
+
+model Order {
+  id           String @id @default(uuid())
+  order_number Int
+  total_price  Int
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("orders")
+}
+
+model Product {
+  id          String  @id @default(uuid())
+  title       String
+  description String
+  price       Int
+  category    String?
+  quantity    Int
+
+  orders OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("products")
+}
+
+model OrderItem {
+  id String @id @default(uuid())
+
+  order_id   String
+  product_id String
+
+  quantity Int
+  price    Int
+
+  order   Order   @relation(fields: [order_id], references: [id])
+  product Product @relation(fields: [product_id], references: [id])
+
+  @@map("order_items")
 }
 
 model Address {
