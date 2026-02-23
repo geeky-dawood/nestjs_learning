@@ -2,6 +2,14 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrderService } from './order.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  duplicateOrderItems,
+  emptyOrderItems,
+  singleItemOrder,
+  productNotFound,
+  productsInStock,
+  productsInsufficientStock,
+} from 'src/test/order.test.data';
 
 describe('OrderService', () => {
   let service: OrderService;
@@ -30,84 +38,55 @@ describe('OrderService', () => {
   });
 
   it('should throw error if items array is empty', async () => {
-    await expect(service.createOrder({ items: [] } as any)).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      service.createOrder({ items: emptyOrderItems }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should throw error if duplicate products exist', async () => {
+    await expect(
+      service.createOrder({ items: duplicateOrderItems }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('should throw error if product not found', async () => {
-    const mockTx = {
-      product: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
-
-    prisma.$transaction.mockImplementation(async (callback) =>
-      callback(mockTx),
-    );
+    jest.spyOn(service, 'findMany').mockResolvedValue(productNotFound as any);
 
     await expect(
-      service.createOrder({
-        items: [{ product_id: 1, quantity: 1 }],
-      } as any),
-    ).rejects.toThrow('Product not found');
+      service.createOrder({ items: singleItemOrder }),
+    ).rejects.toThrow('One or more products not found');
   });
 
   it('should throw error if stock is insufficient', async () => {
-    const mockTx = {
-      product: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ id: 1, price: 100, quantity: 1 }]),
-      },
-    };
-
-    prisma.$transaction.mockImplementation(async (callback) =>
-      callback(mockTx),
-    );
+    jest
+      .spyOn(service, 'findMany')
+      .mockResolvedValue(productsInsufficientStock as any);
 
     await expect(
-      service.createOrder({
-        items: [{ product_id: 1, quantity: 5 }],
-      } as any),
-    ).rejects.toThrow('Not enough stock');
+      service.createOrder({ items: singleItemOrder }),
+    ).rejects.toThrow('Insufficient stock for product ID 1');
   });
 
   it('should create order successfully', async () => {
+    jest.spyOn(service, 'findMany').mockResolvedValue(productsInStock as any);
+
     const mockTx = {
-      product: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ id: 1, price: 100, quantity: 10 }]),
-        update: jest.fn(),
-      },
       order: {
-        create: jest.fn().mockResolvedValue({
-          id: 1,
-          order_number: 12345,
-          total_price: 200,
-        }),
+        create: jest
+          .fn()
+          .mockResolvedValue({ id: 'o1', order_number: 123, total_price: 200 }),
       },
-      orderItem: {
-        createMany: jest.fn(),
-      },
+      orderItem: { createMany: jest.fn() },
+      product: { update: jest.fn() },
     };
 
-    prisma.$transaction.mockImplementation(async (callback) =>
-      callback(mockTx),
-    );
+    prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
 
-    const result = await service.createOrder({
-      items: [{ product_id: 1, quantity: 2 }],
-    } as any);
+    const result = await service.createOrder({ items: singleItemOrder });
 
     expect(result).toEqual({
       message: 'order Placed',
-      data: {
-        id: 1,
-        order_number: 12345,
-        total_price: 200,
-      },
+      data: { id: 'o1', order_number: 123, total_price: 200 },
     });
 
     expect(mockTx.order.create).toHaveBeenCalled();
