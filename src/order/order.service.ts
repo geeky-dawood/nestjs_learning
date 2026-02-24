@@ -1,9 +1,14 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { BaseService } from 'src/common/database/base.service';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
 import { Order, Product } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductService } from 'src/product/product.service';
+import { PaginationDto } from 'src/utils/pagination';
 
 @Injectable()
 export class OrderService extends BaseService<Order> {
@@ -14,7 +19,7 @@ export class OrderService extends BaseService<Order> {
     super(prisma, prisma.order);
   }
 
-  async createOrder(payload: PlaceOrderDto) {
+  async createOrder(user_id: string, payload: PlaceOrderDto) {
     const { items: orderItems } = payload;
 
     if (!orderItems || orderItems.length === 0) {
@@ -73,8 +78,9 @@ export class OrderService extends BaseService<Order> {
       return this.prisma.$transaction(async (tx) => {
         const order = await tx.order.create({
           data: {
-            order_number: Math.floor(Math.random() * 100000),
+            order_number: this.generateOrderNumber(),
             total_price: totalAmount,
+            user_id: user_id,
           },
         });
 
@@ -107,5 +113,70 @@ export class OrderService extends BaseService<Order> {
       console.error('Error creating order:', error);
       throw error;
     }
+  }
+
+  async getOrderByUserId(user_id: string, pagination?: PaginationDto) {
+    try {
+      const validateUser = await this.prisma.user.findUnique({
+        where: {
+          id: user_id,
+        },
+      });
+
+      if (!validateUser) {
+        throw new NotFoundException('Invalid User ID');
+      }
+
+      const page = pagination?.page || 1;
+      const size = pagination?.limit || 10;
+
+      const skip = (page - 1) * size;
+
+      const [orders, total] = await this.prisma.$transaction([
+        this.prisma.order.findMany({
+          where: { user_id },
+          skip: skip,
+          take: size,
+          include: {
+            items: {
+              include: {
+                product: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        }),
+        this.prisma.order.count({
+          where: { user_id },
+        }),
+      ]);
+
+      const totalPages = Math.ceil(total / size);
+
+      return {
+        data: orders,
+        meta: {
+          page_number: page,
+          page_size: size,
+          total_pages: totalPages,
+        },
+      };
+    } catch (error) {
+      console.error('Error fetching orders by user ID:', error);
+      throw error;
+    }
+  }
+
+  private generateOrderNumber(): string {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const randomLetters = Array.from({ length: 3 })
+      .map(() => letters[Math.floor(Math.random() * letters.length)])
+      .join('');
+
+    const randomNumbers = Math.floor(100000 + Math.random() * 900000);
+
+    return `${randomLetters}${randomNumbers}`;
   }
 }

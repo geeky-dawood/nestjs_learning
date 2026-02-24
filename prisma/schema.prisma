@@ -31,6 +31,8 @@ model User {
   address  Address[]
   attempts LoginAttempts[]
 
+  orders Order[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -53,10 +55,13 @@ model LoginAttempts {
 
 model Order {
   id           String @id @default(uuid())
-  order_number Int
+  order_number String
   total_price  Int
 
   items OrderItem[]
+
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
