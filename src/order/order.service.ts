@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { BaseService } from 'src/common/database/base.service';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
-import { Order, Product } from 'src/generated/prisma/client';
+import { Order, Prisma, Product } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductService } from 'src/product/product.service';
 import { PaginationDto } from 'src/utils/pagination';
@@ -115,6 +115,50 @@ export class OrderService extends BaseService<Order> {
     }
   }
 
+  async getAllOrders(pagination: PaginationDto) {
+    try {
+      const page = pagination?.page || 1;
+      const size = pagination?.limit || 10;
+
+      const skip = (page - 1) * size;
+
+      return this.paginateOrders({
+        skip: skip,
+        take: size,
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getOrderByOrderId(orderId: string) {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: {
+          id: orderId,
+        },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException('No order found against this  order-id ');
+      }
+
+      return {
+        message: 'Success',
+        data: order,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getOrderByUserId(user_id: string, pagination?: PaginationDto) {
     try {
       const validateUser = await this.prisma.user.findUnique({
@@ -132,39 +176,40 @@ export class OrderService extends BaseService<Order> {
 
       const skip = (page - 1) * size;
 
-      const [orders, total] = await this.prisma.$transaction([
-        this.prisma.order.findMany({
-          where: { user_id },
-          skip: skip,
-          take: size,
-          include: {
-            items: {
-              include: {
-                product: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
+      return this.paginateOrders({
+        where: { user_id },
+        skip: skip,
+        take: size,
+      });
+    } catch (error) {
+      console.error('Error fetching orders by user ID:', error);
+      throw error;
+    }
+  }
+
+  async deleteOrderByOrderId(orderId: string) {
+    try {
+      await this.prisma.$transaction([
+        this.prisma.orderItem.deleteMany({
+          where: {
+            order_id: orderId,
           },
         }),
-        this.prisma.order.count({
-          where: { user_id },
+
+        this.prisma.order.delete({
+          where: {
+            id: orderId,
+          },
         }),
       ]);
 
-      const totalPages = Math.ceil(total / size);
-
       return {
-        data: orders,
-        meta: {
-          page_number: page,
-          page_size: size,
-          total_pages: totalPages,
-        },
+        message: 'Deleted Successfully',
       };
     } catch (error) {
-      console.error('Error fetching orders by user ID:', error);
+      if (error.code === 'P2025') {
+        throw new NotFoundException('Invalid order-id');
+      }
       throw error;
     }
   }
@@ -178,5 +223,45 @@ export class OrderService extends BaseService<Order> {
     const randomNumbers = Math.floor(100000 + Math.random() * 900000);
 
     return `${randomLetters}${randomNumbers}`;
+  }
+
+  private async paginateOrders(options: {
+    where?: Prisma.OrderWhereInput;
+    skip?: number;
+    take?: number;
+  }) {
+    const { where = {}, skip = 0, take = 10 } = options;
+
+    const [orders, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / take);
+    const currentPage = Math.floor(skip / take) + 1;
+
+    return {
+      data: orders,
+      meta: {
+        current_page_number: currentPage,
+        page_size: take,
+        total_pages: totalPages,
+        total_records: total,
+      },
+    };
   }
 }

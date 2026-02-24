@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -15,19 +16,34 @@ import { PaginationDto } from 'src/utils/pagination';
 export class OrderController {
   constructor(private orderService: OrderService) {}
 
-  @Post('/place-order')
+  @Post('/create')
   createOrder(@Query('user_id') id: string, @Body() body: PlaceOrderDto) {
-    if (id === null || id === undefined || id.trim() === '') {
+    if (!id?.trim()) {
       throw new ForbiddenException('User ID is required.');
     }
     return this.orderService.createOrder(id, body);
   }
 
-  @Get('/order-by/:user_id')
+  @Get('/all-orders')
+  getAllOrders(@Query() pagination: PaginationDto) {
+    return this.orderService.getAllOrders(pagination);
+  }
+
+  @Get('/:orderId')
+  getOrderByOrderId(@Param('orderId') orderId: string) {
+    return this.orderService.getOrderByOrderId(orderId);
+  }
+
+  @Get('/user/:userId')
   orderByUserId(
-    @Param('user_id') user_id: string,
+    @Param('userId') user_id: string,
     @Query() pagination: PaginationDto,
   ) {
     return this.orderService.getOrderByUserId(user_id, pagination);
+  }
+
+  @Delete('/delete/:orderId')
+  deleteOrderByOrderId(@Param('orderId') orderId: string) {
+    return this.orderService.deleteOrderByOrderId(orderId);
   }
 }
