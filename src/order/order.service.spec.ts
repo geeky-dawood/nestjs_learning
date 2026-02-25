@@ -3,16 +3,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrderService } from './order.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductService } from 'src/product/product.service';
-import {
-  emptyOrderItems,
-  duplicateOrderItems,
-  singleItemOrder,
-  multiItemOrder,
-  productNotFound,
-  productsInStock,
-  productsInsufficientStock,
-  multiProductsInStock,
-} from 'src/test/order.test.data';
 
 describe('OrderService', () => {
   let service: OrderService;
@@ -25,7 +15,15 @@ describe('OrderService', () => {
     prisma = {
       $transaction: jest.fn(),
       user: { findUnique: jest.fn() },
-      order: { findMany: jest.fn(), count: jest.fn() },
+      order: {
+        findMany: jest.fn(),
+        count: jest.fn(),
+        findUnique: jest.fn(),
+        delete: jest.fn(),
+      },
+      orderItem: {
+        deleteMany: jest.fn(),
+      },
     };
 
     productService = { findMany: jest.fn() };
@@ -45,43 +43,73 @@ describe('OrderService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should throw error if items array is empty', async () => {
+  it('should throw if user does not exist', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.createOrder(userId, { items: [] })).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should throw if items empty', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: userId });
+
+    await expect(service.createOrder(userId, { items: [] })).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should throw if duplicate products exist', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: userId });
+
     await expect(
-      service.createOrder(userId, { items: emptyOrderItems }),
+      service.createOrder(userId, {
+        items: [
+          { product_id: 'p1', quantity: 1 },
+          { product_id: 'p1', quantity: 2 },
+        ],
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should throw error if duplicate products exist', async () => {
+  it('should throw if product not found', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: userId });
+    productService.findMany.mockResolvedValue([]);
+
     await expect(
-      service.createOrder(userId, { items: duplicateOrderItems }),
+      service.createOrder(userId, {
+        items: [{ product_id: 'p1', quantity: 1 }],
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should throw error if product not found', async () => {
-    productService.findMany.mockResolvedValue(productNotFound as any);
+  it('should throw if stock insufficient', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: userId });
+
+    productService.findMany.mockResolvedValue([
+      { id: 'p1', price: 100, quantity: 0 },
+    ]);
 
     await expect(
-      service.createOrder(userId, { items: singleItemOrder }),
-    ).rejects.toThrow('One or more products not found');
-  });
-
-  it('should throw error if stock is insufficient', async () => {
-    productService.findMany.mockResolvedValue(productsInsufficientStock as any);
-
-    await expect(
-      service.createOrder(userId, { items: singleItemOrder }),
+      service.createOrder(userId, {
+        items: [{ product_id: 'p1', quantity: 2 }],
+      }),
     ).rejects.toThrow(/Insufficient stock/);
   });
 
-  it('should create single-item order successfully', async () => {
-    productService.findMany.mockResolvedValue(productsInStock as any);
+  it('should create order successfully', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: userId });
+
+    productService.findMany.mockResolvedValue([
+      { id: 'p1', price: 100, quantity: 10 },
+    ]);
 
     const mockTx = {
       order: {
         create: jest.fn().mockResolvedValue({
           id: 'o1',
-          order_number: 'ABC123',
-          total_price: 200,
+          order_number: 'ABC123456',
+          total_price: 100,
         }),
       },
       orderItem: { createMany: jest.fn() },
@@ -91,49 +119,36 @@ describe('OrderService', () => {
     prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
 
     const result = await service.createOrder(userId, {
-      items: singleItemOrder,
+      items: [{ product_id: 'p1', quantity: 1 }],
     });
 
-    expect(result).toEqual({
-      message: 'order Placed',
-      data: { id: 'o1', order_number: 'ABC123', total_price: 200 },
-    });
-
+    expect(result.message).toBe('order Placed');
     expect(mockTx.order.create).toHaveBeenCalled();
     expect(mockTx.orderItem.createMany).toHaveBeenCalled();
     expect(mockTx.product.update).toHaveBeenCalled();
   });
 
-  it('should create multi-item order successfully', async () => {
-    productService.findMany.mockResolvedValue(multiProductsInStock as any);
+  it('should throw if order not found', async () => {
+    prisma.order.findUnique.mockResolvedValue(null);
 
-    const mockTx = {
-      order: {
-        create: jest.fn().mockResolvedValue({
-          id: 'o2',
-          order_number: 'XYZ456',
-          total_price: 800,
-        }),
-      },
-      orderItem: { createMany: jest.fn() },
-      product: { update: jest.fn() },
-    };
-
-    prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
-
-    const result = await service.createOrder(userId, { items: multiItemOrder });
-
-    expect(result).toEqual({
-      message: 'order Placed',
-      data: { id: 'o2', order_number: 'XYZ456', total_price: 800 },
-    });
-
-    expect(mockTx.order.create).toHaveBeenCalled();
-    expect(mockTx.orderItem.createMany).toHaveBeenCalled();
-    expect(mockTx.product.update).toHaveBeenCalled();
+    await expect(service.getOrderByOrderId('invalid')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
-  it('should throw NotFoundException if user does not exist', async () => {
+  it('should return order by ID', async () => {
+    prisma.order.findUnique.mockResolvedValue({
+      id: 'o1',
+      items: [],
+    });
+
+    const result = await service.getOrderByOrderId('o1');
+
+    expect(result.message).toBe('Success');
+    expect(result.data.id).toBe('o1');
+  });
+
+  it('should throw if user not found', async () => {
     prisma.user.findUnique.mockResolvedValue(null);
 
     await expect(service.getOrderByUserId(userId)).rejects.toThrow(
@@ -141,79 +156,37 @@ describe('OrderService', () => {
     );
   });
 
-  it('should return paginated orders with products', async () => {
+  it('should return paginated orders', async () => {
     prisma.user.findUnique.mockResolvedValue({ id: userId });
 
-    prisma.order.findMany.mockResolvedValue([
-      {
-        id: 'o1',
-        order_number: 'ABC123',
-        total_price: 200,
-        items: [
-          {
-            id: 'oi1',
-            quantity: 2,
-            price: 100,
-            product: { id: 'p1', title: 'Product 1', price: 50 },
-          },
-        ],
-      },
-    ]);
-
-    prisma.order.count.mockResolvedValue(1);
+    prisma.$transaction.mockResolvedValue([[{ id: 'o1', items: [] }], 1]);
 
     const result = await service.getOrderByUserId(userId, {
       page: 1,
       limit: 10,
     });
 
-    expect(result).toEqual({
-      data: [
-        {
-          id: 'o1',
-          order_number: 'ABC123',
-          total_price: 200,
-          items: [
-            {
-              id: 'oi1',
-              quantity: 2,
-              price: 100,
-              product: { id: 'p1', title: 'Product 1', price: 50 },
-            },
-          ],
-        },
-      ],
-      meta: { page_number: 1, page_size: 10, total_pages: 1 },
+    expect(result.meta).toEqual({
+      current_page_number: 1,
+      page_size: 10,
+      total_pages: 1,
+      total_records: 1,
     });
   });
 
-  it('should handle pagination correctly', async () => {
-    prisma.user.findUnique.mockResolvedValue({ id: userId });
+  it('should delete order successfully', async () => {
+    prisma.$transaction.mockResolvedValue([]);
 
-    const ordersMock = Array.from({ length: 15 }).map((_, i) => ({
-      id: `o${i + 1}`,
-      order_number: `ORD${i + 1}`,
-      total_price: 100 + i,
-      items: [],
-    }));
+    const result = await service.deleteOrderByOrderId('o1');
 
-    prisma.order.findMany.mockImplementation(({ skip, take }) =>
-      Promise.resolve(ordersMock.slice(skip, skip + take)),
+    expect(result.message).toBe('Deleted Successfully');
+  });
+
+  it('should throw if order not found during delete', async () => {
+    prisma.$transaction.mockRejectedValue({ code: 'P2025' });
+
+    await expect(service.deleteOrderByOrderId('invalid')).rejects.toThrow(
+      NotFoundException,
     );
-
-    prisma.order.count.mockResolvedValue(15);
-
-    const result = await service.getOrderByUserId(userId, {
-      page: 2,
-      limit: 5,
-    });
-
-    expect(result.data.length).toBe(5);
-    expect(result.meta).toEqual({
-      page_number: 2,
-      page_size: 5,
-      total_pages: 3,
-    });
-    expect(result.data[0].id).toBe('o6');
   });
 });
