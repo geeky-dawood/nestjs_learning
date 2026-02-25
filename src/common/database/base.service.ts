@@ -13,10 +13,8 @@ export class BaseService<T, CreateDto = any> {
   }
 
   // Find one record by unique key
-  async findOne(
-    where: Prisma.PrismaClientKnownRequestError | any,
-  ): Promise<T | null> {
-    return this.model.findUnique({ where });
+  async findOne(args: any): Promise<T | null> {
+    return this.model.findUnique(args);
   }
 
   // Find many records with optional filters
