@@ -22,6 +22,16 @@ export class OrderService extends BaseService<Order> {
   async createOrder(user_id: string, payload: PlaceOrderDto) {
     const { items: orderItems } = payload;
 
+    const validateUser = await this.prisma.user.findUnique({
+      where: {
+        id: user_id,
+      },
+    });
+
+    if (!validateUser) {
+      throw new NotFoundException('Invalid User ID');
+    }
+
     if (!orderItems || orderItems.length === 0) {
       throw new BadRequestException(
         'Please add at least one product to place order.',
@@ -147,7 +157,7 @@ export class OrderService extends BaseService<Order> {
       });
 
       if (!order) {
-        throw new NotFoundException('No order found against this  order-id ');
+        throw new NotFoundException('No order found against this order-id ');
       }
 
       return {

@@ -29,17 +29,17 @@ export class OrderController {
     return this.orderService.getAllOrders(pagination);
   }
 
-  @Get('/:orderId')
-  getOrderByOrderId(@Param('orderId') orderId: string) {
-    return this.orderService.getOrderByOrderId(orderId);
-  }
-
   @Get('/user/:userId')
   orderByUserId(
     @Param('userId') user_id: string,
     @Query() pagination: PaginationDto,
   ) {
     return this.orderService.getOrderByUserId(user_id, pagination);
+  }
+
+  @Get('/:orderId')
+  getOrderByOrderId(@Param('orderId') orderId: string) {
+    return this.orderService.getOrderByOrderId(orderId);
   }
 
   @Delete('/delete/:orderId')
