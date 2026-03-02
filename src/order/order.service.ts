@@ -4,8 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { BaseService } from 'src/common/database/base.service';
+import { OrderFilterDto } from 'src/dto/filter.dto';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
-import { Order, Prisma, Product } from 'src/generated/prisma/client';
+import {
+  Order,
+  OrderStatusEnum,
+  Prisma,
+  Product,
+} from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductService } from 'src/product/product.service';
 import { PaginationDto } from 'src/utils/pagination';
@@ -125,14 +131,17 @@ export class OrderService extends BaseService<Order> {
     }
   }
 
-  async getAllOrders(pagination: PaginationDto) {
+  async getAllOrders(query: OrderFilterDto) {
     try {
-      const page = pagination?.page || 1;
-      const size = pagination?.limit || 10;
+      const page = query?.page || 1;
+      const size = query?.limit || 10;
 
       const skip = (page - 1) * size;
 
       return this.paginateOrders({
+        where: {
+          order_status: query?.filter,
+        },
         skip: skip,
         take: size,
       });
@@ -248,6 +257,13 @@ export class OrderService extends BaseService<Order> {
         skip,
         take,
         include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
           items: {
             include: {
               product: true,

@@ -14,9 +14,11 @@ enum SigninResponseEnum {
   INVALID_PASSWORD
 }
 
-enum UserRole {
-  ADMIN
-  USER
+enum OrderStatusEnum {
+  PENDING
+  CONFIRMED
+  SHIPPING
+  DELIVERED
 }
 
 model User {
@@ -60,9 +62,10 @@ model LoginAttempts {
 }
 
 model Order {
-  id           String @id @default(uuid())
+  id           String          @id @default(uuid())
   order_number String
   total_price  Int
+  order_status OrderStatusEnum @default(PENDING)
 
   items OrderItem[]
 

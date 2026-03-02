@@ -11,6 +11,7 @@ import {
 import { OrderService } from './order.service';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
 import { PaginationDto } from 'src/utils/pagination';
+import { OrderFilterDto } from 'src/dto/filter.dto';
 
 @Controller('order')
 export class OrderController {
@@ -25,8 +26,8 @@ export class OrderController {
   }
 
   @Get('/all-orders')
-  getAllOrders(@Query() pagination: PaginationDto) {
-    return this.orderService.getAllOrders(pagination);
+  async getAllOrders(@Query() query: OrderFilterDto) {
+    return await this.orderService.getAllOrders(query);
   }
 
   @Get('/user/:userId')
