@@ -156,21 +156,59 @@ describe('OrderService', () => {
     );
   });
 
-  it('should return paginated orders', async () => {
-    prisma.user.findUnique.mockResolvedValue({ id: userId });
+  describe('getAllOrders', () => {
+    const mockOrders = [
+      { id: 'o1', order_status: 'PENDING', items: [] },
+      { id: 'o2', order_status: 'COMPLETED', items: [] },
+      { id: 'o3', order_status: 'PENDING', items: [] },
+    ];
 
-    prisma.$transaction.mockResolvedValue([[{ id: 'o1', items: [] }], 1]);
+    it('should return paginated orders without filter', async () => {
+      prisma.order.findMany.mockResolvedValue(mockOrders.slice(0, 2));
+      prisma.order.count.mockResolvedValue(3);
 
-    const result = await service.getOrderByUserId(userId, {
-      page: 1,
-      limit: 10,
+      const result = await service.getAllOrders({ page: 1, limit: 2 });
+
+      expect(result.data).toEqual(mockOrders.slice(0, 2));
+      expect(result.meta).toEqual({
+        current_page_number: 1,
+        page_size: 2,
+        total_pages: 2,
+        total_records: 3,
+      });
     });
 
-    expect(result.meta).toEqual({
-      current_page_number: 1,
-      page_size: 10,
-      total_pages: 1,
-      total_records: 1,
+    it('should return paginated orders with filter', async () => {
+      const filter = 'PENDING';
+      const filteredOrders = mockOrders.filter(
+        (o) => o.order_status === filter,
+      );
+
+      prisma.order.findMany.mockResolvedValue(filteredOrders);
+      prisma.order.count.mockResolvedValue(2);
+
+      const result = await service.getAllOrders({ page: 1, limit: 10, filter });
+
+      expect(result.data.every((o) => o.order_status === filter)).toBe(true);
+      expect(result.meta.total_records).toBe(2);
+    });
+
+    it('should handle errors gracefully', async () => {
+      prisma.order.findMany.mockRejectedValue(new Error('Database error'));
+
+      await expect(
+        service.getAllOrders({ page: 1, limit: 10 }),
+      ).rejects.toThrow('Database error');
+    });
+
+    it('should use default pagination if page or limit is missing', async () => {
+      prisma.order.findMany.mockResolvedValue([]);
+      prisma.order.count.mockResolvedValue(0);
+
+      const result = await service.getAllOrders({});
+
+      expect(result.data).toEqual([]);
+      expect(prisma.order.findMany).toHaveBeenCalled();
     });
   });
 

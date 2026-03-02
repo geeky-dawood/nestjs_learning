@@ -31,3 +31,9 @@ export const multiProductsInStock: Product[] = [
   { id: '1', price: 100, quantity: 5 } as Product,
   { id: '2', price: 200, quantity: 3 } as Product,
 ];
+
+export class OrderFilterDto {
+  page?: number;
+  limit?: number;
+  filter?: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+}
