@@ -8,113 +8,23 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SignupDto } from 'src/dto/signup.dto';
 import { hashpassword, verifyHashPassword } from 'src/helpers/hash.helper';
-import { LoginDto } from 'src/dto/login.dto';
+import { SigninDto } from 'src/dto/signin.dto';
 import { generateToken } from 'src/utils/jwt.generator';
 import { SigninResponseEnum } from 'src/generated/prisma/enums';
 import { User } from 'src/generated/prisma/client';
+import { BaseService } from 'src/common/database/base.service';
 
 @Injectable()
-export class AuthService {
-  constructor(private prisma: PrismaService) {}
-
-  //----Signin
-  async signin(payload: LoginDto) {
-    try {
-      const desiredEmailFormate = payload.email.toLowerCase();
-      const wrongAttemptTrackingTimeWindow = new Date(
-        Date.now() - 1 * 60 * 1000,
-      );
-      const accountLockoutDuration = new Date(Date.now() + 1 * 60 * 1000);
-
-      const validUser = await this.prisma.user.findUnique({
-        where: {
-          email: desiredEmailFormate,
-        },
-      });
-
-      if (!validUser || validUser.is_Deleted) {
-        throw new NotFoundException('User not found.');
-      }
-
-      if (validUser.lock_until && validUser.lock_until > new Date()) {
-        const remaining = Math.ceil(
-          (validUser.lock_until.getTime() - Date.now()) / 1000,
-        );
-        throw new ForbiddenException(
-          `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
-        );
-      }
-
-      const isPasswordValid = await verifyHashPassword(
-        validUser.password,
-        payload.password,
-      );
-
-      //currently with 1 minute for testing purpose, can be changed to 15 minutes or as per requirement
-
-      if (!isPasswordValid) {
-        this.failLoginAttempt(validUser);
-
-        const totalWrongAttempts = await this.prisma.loginAttempts.findMany({
-          where: {
-            user_id: validUser.id,
-            attempt_success: false,
-            createAt: {
-              gte: wrongAttemptTrackingTimeWindow,
-            },
-          },
-          take: 5,
-          orderBy: {
-            createAt: 'desc',
-          },
-        });
-
-        console.log('Wrong attempts:', totalWrongAttempts.length);
-
-        if (
-          totalWrongAttempts.length >= Number(process.env.MAX_WRONG_ATTEMPTS)
-        ) {
-          await this.prisma.user.update({
-            where: {
-              id: validUser.id,
-            },
-            data: {
-              is_Locked: true,
-              lock_until: accountLockoutDuration,
-            },
-          });
-          throw new ForbiddenException(
-            'Account locked due to multiple wrong attempts.',
-          );
-        }
-
-        throw new UnauthorizedException('Invalid Credentials');
-      } else {
-        const accessToken = await generateToken(validUser);
-        const { password, ...result } = validUser;
-
-        this.successtLoginAttempt(validUser);
-
-        return {
-          message: 'Login Successful',
-          data: {
-            access_token: accessToken,
-            ...result,
-          },
-        };
-      }
-    } catch (error) {
-      console.log(error);
-      throw error;
-    }
+export class AuthService extends BaseService<User> {
+  constructor(protected prisma: PrismaService) {
+    super(prisma, prisma.user);
   }
-  //----Signup
 
   async signup(payload: SignupDto) {
     try {
-      const desiredEmailFormate = payload.email.toLowerCase();
+      const desiredEmailFormate = this.desiredEmailReturn(payload.email);
 
-      const alreadyUser = await this.prisma.user.findUnique({
+      const alreadyUser = await this.findOne({
         where: {
           email: desiredEmailFormate,
         },
@@ -127,7 +37,7 @@ export class AuthService {
       const originalPassword = payload.password;
       const hash = await hashpassword(originalPassword);
 
-      const user = await this.prisma.user.create({
+      const user = await this.create({
         data: {
           name: payload.name,
           email: desiredEmailFormate,
@@ -150,33 +60,115 @@ export class AuthService {
     }
   }
 
-  private async failLoginAttempt(user: User) {
-    await this.prisma.loginAttempts.create({
-      data: {
-        reason: SigninResponseEnum.INVALID_PASSWORD,
-        user_id: user.id,
-        attempt_success: false,
-      },
-    });
+  async signin(payload: SigninDto) {
+    try {
+      const desiredEmailFormate = this.desiredEmailReturn(payload.email);
+
+      let accountLockoutDuration = new Date(Date.now() + 1 * 60 * 1000); //lock for a minute just for testing purpose, can be increased as per requirement
+      let wrongAttemptTrackingTimeWindow = new Date(Date.now() - 1 * 60 * 1000); // track wrong attempts in last 1 minute just for testing purpose, can be increased as per requirement
+
+      const user = await this.findOne({
+        where: {
+          email: desiredEmailFormate,
+        },
+      });
+
+      if (!user || user.is_deleted) {
+        throw new NotFoundException('User not found.');
+      }
+
+      if (user.lock_until && user.lock_until > new Date()) {
+        const remaining = Math.ceil(
+          (user.lock_until.getTime() - Date.now()) / 1000,
+        );
+        throw new ForbiddenException(
+          `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
+        );
+      }
+
+      const isPasswordValid = await verifyHashPassword(
+        user.password,
+        payload.password,
+      );
+
+      if (!isPasswordValid) {
+        await this.UpdateLoginAttempt(user, isPasswordValid);
+
+        const totalWrongAttempts = await this.prisma.loginAttempts.findMany({
+          where: {
+            user_id: user.id,
+            attempt_success: false,
+            createAt: {
+              gte: wrongAttemptTrackingTimeWindow,
+            },
+          },
+          take: 5,
+          orderBy: {
+            createAt: 'desc',
+          },
+        });
+
+        if (totalWrongAttempts.length >= 5) {
+          await this.prisma.user.update({
+            where: {
+              id: user.id,
+            },
+            data: {
+              is_locked: true,
+              lock_until: accountLockoutDuration,
+            },
+          });
+          throw new ForbiddenException(
+            'Account locked due to multiple wrong attempts.',
+          );
+        }
+
+        throw new UnauthorizedException('Invalid Credentials');
+      } else {
+        const accessToken = await generateToken(user);
+        const { password, ...result } = user;
+
+        await this.UpdateLoginAttempt(user, isPasswordValid);
+
+        return {
+          message: 'Login Successful',
+          data: {
+            access_token: accessToken,
+            ...result,
+          },
+        };
+      }
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
   }
 
-  private async successtLoginAttempt(user: User) {
+  private async UpdateLoginAttempt(user: User, isAttemptSuccess: boolean) {
     await this.prisma.loginAttempts.create({
       data: {
-        reason: SigninResponseEnum.PASSWORD_MATCHES,
+        reason: isAttemptSuccess
+          ? SigninResponseEnum.PASSWORD_MATCHES
+          : SigninResponseEnum.INVALID_PASSWORD,
         user_id: user.id,
-        attempt_success: true,
+        attempt_success: isAttemptSuccess,
       },
     });
 
-    await this.prisma.user.update({
-      where: {
-        id: user.id,
-      },
-      data: {
-        is_Locked: false,
-        lock_until: null,
-      },
-    });
+    if (isAttemptSuccess) {
+      await this.update(
+        {
+          id: user.id,
+        },
+        {
+          is_locked: false,
+          lock_until: null,
+        },
+      );
+    }
+  }
+
+  private desiredEmailReturn(email: string) {
+    return email.toLocaleLowerCase();
   }
 }

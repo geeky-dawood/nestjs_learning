@@ -22,17 +22,17 @@ enum OrderStatusEnum {
 }
 
 model User {
-  id              String    @id @default(uuid())
+  id              String  @id @default(uuid())
   name            String
-  email           String    @unique
-  dob             DateTime?
+  email           String  @unique
+  dob             String?
   password        String
   profile_picture String?
-  is_Deleted      Boolean   @default(false)
-  is_Verified     Boolean   @default(false)
+  is_deleted      Boolean @default(false)
+  is_verified     Boolean @default(false)
 
   wrong_attempts Int       @default(0)
-  is_Locked      Boolean   @default(false)
+  is_locked      Boolean   @default(false)
   lock_until     DateTime?
 
   address  Address[]
@@ -57,7 +57,7 @@ model LoginAttempts {
   createAt  DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("loginAttempts")
+  @@map("login_attempts")
 }
 
 model Order {

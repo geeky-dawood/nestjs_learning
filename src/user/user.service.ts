@@ -23,7 +23,7 @@ export class UserService {
         },
         data: {
           email: Date.now() + user.email,
-          is_Deleted: true,
+          is_deleted: true,
         },
       });
 
