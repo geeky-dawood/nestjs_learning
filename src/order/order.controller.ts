@@ -7,12 +7,15 @@ import {
   Param,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
 import { PaginationDto } from 'src/utils/pagination';
 import { OrderFilterDto } from 'src/dto/filter.dto';
+import { JwtAuthGuard } from 'src/auth/guard/jwt.auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('order')
 export class OrderController {
   constructor(private orderService: OrderService) {}
