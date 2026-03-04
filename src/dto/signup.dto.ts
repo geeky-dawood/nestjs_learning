@@ -1,12 +1,19 @@
 import {
-  IsDateString,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
 } from 'class-validator';
+import { UserRole } from 'src/generated/prisma/enums';
 
 export class SignupDto {
+  @IsOptional()
+  @IsEnum(UserRole, {
+    message: 'Role must be either ADMIN or USER',
+  })
+  role?: UserRole;
+
   @IsNotEmpty()
   @IsString()
   @Matches(/^[A-Za-z]+(?: [A-Za-z]+)*$/, {

@@ -14,6 +14,8 @@ import { PlaceOrderDto } from 'src/dto/place_order.dto';
 import { PaginationDto } from 'src/utils/pagination';
 import { OrderFilterDto } from 'src/dto/filter.dto';
 import { JwtAuthGuard } from 'src/auth/guard/jwt.auth.guard';
+import { RolesGuard } from 'src/auth/guard/role.auth.guard';
+import { Roles } from 'src/auth/decorator/role.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('order')
@@ -28,6 +30,8 @@ export class OrderController {
     return this.orderService.createOrder(id, body);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   @Get('/all-orders')
   async getAllOrders(@Query() query: OrderFilterDto) {
     return await this.orderService.getAllOrders(query);
