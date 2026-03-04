@@ -37,7 +37,7 @@ export class AuthService extends BaseService<User> {
       const originalPassword = payload.password;
       const hash = await hashpassword(originalPassword);
 
-      const user = await this.create({
+      const user = await this.prisma.user.create({
         data: {
           name: payload.name,
           email: desiredEmailFormate,
