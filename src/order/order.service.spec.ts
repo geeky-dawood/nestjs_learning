@@ -1,8 +1,15 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ExecutionContext,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrderService } from './order.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductService } from 'src/product/product.service';
+import { Reflector } from '@nestjs/core';
+import { RolesGuard } from 'src/auth/guard/role.auth.guard';
 
 describe('OrderService', () => {
   let service: OrderService;
@@ -226,5 +233,50 @@ describe('OrderService', () => {
     await expect(service.deleteOrderByOrderId('invalid')).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  describe('RolesGuard', () => {
+    let guard: RolesGuard;
+    let reflector: Reflector;
+
+    beforeEach(() => {
+      reflector = new Reflector();
+      guard = new RolesGuard(reflector);
+    });
+
+    const mockExecutionContext = (role: string, requiredRoles: string[]) =>
+      ({
+        switchToHttp: () => ({
+          getRequest: () => ({
+            user: { role },
+          }),
+        }),
+        getHandler: () => {},
+        getClass: () => {},
+      }) as unknown as ExecutionContext;
+
+    it('should allow access if role matches', () => {
+      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ADMIN']);
+
+      const context = mockExecutionContext('ADMIN', ['ADMIN']);
+
+      expect(guard.canActivate(context)).toBe(true);
+    });
+
+    it('should deny access if role does not match', () => {
+      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ADMIN']);
+
+      const context = mockExecutionContext('USER', ['ADMIN']);
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    });
+
+    it('should allow access if no roles required', () => {
+      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
+
+      const context = mockExecutionContext('USER', []);
+
+      expect(guard.canActivate(context)).toBe(true);
+    });
   });
 });

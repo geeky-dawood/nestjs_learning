@@ -21,15 +21,21 @@ enum OrderStatusEnum {
   DELIVERED
 }
 
+enum UserRole {
+  ADMIN
+  USER
+}
+
 model User {
-  id              String  @id @default(uuid())
+  id              String   @id @default(uuid())
   name            String
-  email           String  @unique
+  email           String   @unique
   dob             String?
   password        String
   profile_picture String?
-  is_deleted      Boolean @default(false)
-  is_verified     Boolean @default(false)
+  is_deleted      Boolean  @default(false)
+  is_verified     Boolean  @default(false)
+  role            UserRole @default(USER)
 
   wrong_attempts Int       @default(0)
   is_locked      Boolean   @default(false)
