@@ -6,6 +6,7 @@ import {
 import { BaseService } from 'src/common/database/base.service';
 import { OrderFilterDto } from 'src/dto/filter.dto';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
+import { SearchDto } from 'src/dto/serach.dto';
 import {
   Order,
   OrderStatusEnum,
@@ -131,17 +132,62 @@ export class OrderService extends BaseService<Order> {
     }
   }
 
-  async getAllOrders(query: OrderFilterDto) {
+  async getAllOrders(query: SearchDto) {
     try {
       const page = query?.page || 1;
       const size = query?.limit || 10;
 
       const skip = (page - 1) * size;
 
+      const where: Prisma.OrderWhereInput = {
+        ...(query?.filter && {
+          order_status: query.filter,
+        }),
+
+        ...(query?.search && {
+          OR: [
+            {
+              order_number: {
+                contains: query.search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              user: {
+                email: {
+                  contains: query.search,
+                  mode: 'insensitive',
+                },
+              },
+            },
+            {
+              items: {
+                some: {
+                  product: {
+                    OR: [
+                      {
+                        title: {
+                          contains: query.search,
+                          mode: 'insensitive',
+                        },
+                      },
+                      {
+                        category: {
+                          contains: query.search,
+                          mode: 'insensitive',
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        }),
+      };
+
       return this.paginateOrders({
-        where: {
-          order_status: query?.filter,
-        },
+        where: where,
         skip: skip,
         take: size,
       });
@@ -254,8 +300,8 @@ export class OrderService extends BaseService<Order> {
     const [orders, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
         where,
-        skip,
-        take,
+        skip: skip,
+        take: take,
         include: {
           user: {
             select: {
