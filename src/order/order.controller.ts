@@ -35,8 +35,6 @@ export class OrderController {
   @Roles('ADMIN')
   @Get('/all-orders')
   async getAllOrders(@Query() query: SearchDto) {
-    console.log(query);
-
     return await this.orderService.getAllOrders(query);
   }
 
