@@ -4,7 +4,9 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -17,6 +19,8 @@ import { JwtAuthGuard } from 'src/auth/guard/jwt.auth.guard';
 import { RolesGuard } from 'src/auth/guard/role.auth.guard';
 import { Roles } from 'src/auth/decorator/role.decorator';
 import { SearchDto } from 'src/dto/serach.dto';
+import { NotFoundError } from 'rxjs';
+import { OrderStatusDto } from 'src/dto/order_status.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('order')
@@ -36,6 +40,13 @@ export class OrderController {
   @Get('/all-orders')
   async getAllOrders(@Query() query: SearchDto) {
     return await this.orderService.getAllOrders(query);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @Patch('/change-order-status')
+  async changeOrderStatus(@Query() query: OrderStatusDto) {
+    return await this.orderService.changeOrderStatus(query);
   }
 
   @Get('/user/:userId')
