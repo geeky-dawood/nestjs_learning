@@ -84,6 +84,10 @@ export class AuthService extends BaseService<User> {
         Date.now() - Number(maxWrongAttemptsTimeFrame) * 1000,
       );
 
+      let remainingTimeToUnlockAccount = Math.ceil(
+        (accountLockoutDuration.getTime() - Date.now()) / 1000,
+      );
+
       const user = await this.findOne({
         where: {
           email: desiredEmailFormate,
@@ -94,12 +98,9 @@ export class AuthService extends BaseService<User> {
         throw new NotFoundException('User not found.');
       }
 
-      if (user.lock_until && user.lock_until > new Date()) {
-        const remaining = Math.ceil(
-          (user.lock_until.getTime() - Date.now()) / 1000,
-        );
+      if (user.is_locked && user.lock_until && user.lock_until > new Date()) {
         throw new ForbiddenException(
-          `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
+          `Account locked due to multiple wrong attempts. Try after ${remainingTimeToUnlockAccount} seconds.`,
         );
       }
 
@@ -137,7 +138,7 @@ export class AuthService extends BaseService<User> {
             },
           });
           throw new ForbiddenException(
-            'Account locked due to multiple wrong attempts.',
+            `Account locked due to multiple wrong attempts. Try after ${remainingTimeToUnlockAccount} seconds.`,
           );
         }
 
