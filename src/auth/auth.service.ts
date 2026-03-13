@@ -9,14 +9,19 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { SignupDto } from 'src/dto/signup.dto';
 import { hashpassword, verifyHashPassword } from 'src/helpers/hash.helper';
 import { SigninDto } from 'src/dto/signin.dto';
-import { generateToken } from 'src/utils/jwt.generator';
 import { SigninResponseEnum } from 'src/generated/prisma/enums';
 import { User } from 'src/generated/prisma/client';
 import { BaseService } from 'src/common/database/base.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService extends BaseService<User> {
-  constructor(protected prisma: PrismaService) {
+  constructor(
+    protected prisma: PrismaService,
+    private jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {
     super(prisma, prisma.user);
   }
 
@@ -64,9 +69,24 @@ export class AuthService extends BaseService<User> {
   async signin(payload: SigninDto) {
     try {
       const desiredEmailFormate = this.desiredEmailReturn(payload.email);
+      const maxWrongAttempts = this.configService.get<number>(
+        'MAX_WRONG_ATTEMPTS',
+      )! as number;
 
-      let accountLockoutDuration = new Date(Date.now() + 1 * 60 * 1000); //lock for a minute just for testing purpose, can be increased as per requirement
-      let wrongAttemptTrackingTimeWindow = new Date(Date.now() - 1 * 60 * 1000); // track wrong attempts in last 1 minute just for testing purpose, can be increased as per requirement
+      const maxWrongAttemptsTimeFrame = this.configService.get<number>(
+        'MAX_WRONG_ATTEMPTS_TIME_FRAME',
+      )! as number;
+
+      let accountLockoutDuration = new Date(
+        Date.now() + Number(maxWrongAttemptsTimeFrame) * 1000,
+      );
+      let wrongAttemptTrackingTimeWindow = new Date(
+        Date.now() - Number(maxWrongAttemptsTimeFrame) * 1000,
+      );
+
+      let remainingTimeToUnlockAccount = Math.ceil(
+        (accountLockoutDuration.getTime() - Date.now()) / 1000,
+      );
 
       const user = await this.findOne({
         where: {
@@ -78,12 +98,9 @@ export class AuthService extends BaseService<User> {
         throw new NotFoundException('User not found.');
       }
 
-      if (user.lock_until && user.lock_until > new Date()) {
-        const remaining = Math.ceil(
-          (user.lock_until.getTime() - Date.now()) / 1000,
-        );
+      if (user.is_locked && user.lock_until && user.lock_until > new Date()) {
         throw new ForbiddenException(
-          `Account locked due to multiple wrong attempts. Try after ${remaining} seconds.`,
+          `Account locked due to multiple wrong attempts. Try after ${remainingTimeToUnlockAccount} seconds.`,
         );
       }
 
@@ -94,6 +111,7 @@ export class AuthService extends BaseService<User> {
 
       if (!isPasswordValid) {
         await this.UpdateLoginAttempt(user, isPasswordValid);
+        console.log(maxWrongAttempts);
 
         const totalWrongAttempts = await this.prisma.loginAttempts.findMany({
           where: {
@@ -103,13 +121,13 @@ export class AuthService extends BaseService<User> {
               gte: wrongAttemptTrackingTimeWindow,
             },
           },
-          take: 5,
+          take: Number(maxWrongAttempts),
           orderBy: {
             createAt: 'desc',
           },
         });
 
-        if (totalWrongAttempts.length >= 5) {
+        if (totalWrongAttempts.length >= maxWrongAttempts) {
           await this.prisma.user.update({
             where: {
               id: user.id,
@@ -120,13 +138,13 @@ export class AuthService extends BaseService<User> {
             },
           });
           throw new ForbiddenException(
-            'Account locked due to multiple wrong attempts.',
+            `Account locked due to multiple wrong attempts. Try after ${remainingTimeToUnlockAccount} seconds.`,
           );
         }
 
         throw new UnauthorizedException('Invalid Credentials');
       } else {
-        const accessToken = await generateToken(user);
+        const accessToken = await this.generateToken(user);
         const { password, ...result } = user;
 
         await this.UpdateLoginAttempt(user, isPasswordValid);
@@ -171,5 +189,10 @@ export class AuthService extends BaseService<User> {
 
   private desiredEmailReturn(email: string) {
     return email.toLocaleLowerCase();
+  }
+
+  private generateToken(user: any): Promise<string> {
+    const payload = { email: user.email, sub: user.id, role: user.role };
+    return this.jwtService.signAsync(payload);
   }
 }
