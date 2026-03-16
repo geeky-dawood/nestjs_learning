@@ -14,12 +14,10 @@ import {
 import { OrderService } from './order.service';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
 import { PaginationDto } from 'src/utils/pagination';
-import { OrderFilterDto } from 'src/dto/filter.dto';
 import { JwtAuthGuard } from 'src/auth/guard/jwt.auth.guard';
 import { RolesGuard } from 'src/auth/guard/role.auth.guard';
 import { Roles } from 'src/auth/decorator/role.decorator';
 import { SearchDto } from 'src/dto/serach.dto';
-import { NotFoundError } from 'rxjs';
 import { OrderStatusDto } from 'src/dto/order_status.dto';
 
 @UseGuards(JwtAuthGuard)

@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CANCELLED } from 'dns';
 import { BaseService } from 'src/common/database/base.service';
 import { OrderStatusDto } from 'src/dto/order_status.dto';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
