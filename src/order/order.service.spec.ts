@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ExecutionContext,
   ForbiddenException,
+  NotAcceptableException,
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -10,6 +11,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductService } from 'src/product/product.service';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from 'src/auth/guard/role.auth.guard';
+import { OrderStatusEnum } from 'src/generated/prisma/enums';
 
 describe('OrderService', () => {
   let service: OrderService;
@@ -21,15 +23,24 @@ describe('OrderService', () => {
   beforeEach(async () => {
     prisma = {
       $transaction: jest.fn(),
+
       user: { findUnique: jest.fn() },
+
       order: {
         findMany: jest.fn(),
         count: jest.fn(),
         findUnique: jest.fn(),
         delete: jest.fn(),
+        update: jest.fn(),
       },
+
       orderItem: {
         deleteMany: jest.fn(),
+        findMany: jest.fn(),
+      },
+
+      product: {
+        update: jest.fn(),
       },
     };
 
@@ -45,7 +56,6 @@ describe('OrderService', () => {
 
     service = module.get<OrderService>(OrderService);
   });
-
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
@@ -237,6 +247,7 @@ describe('OrderService', () => {
 
     const result = await service.deleteOrderByOrderId('o1');
 
+    expect(prisma.$transaction).toHaveBeenCalled();
     expect(result.message).toBe('Deleted Successfully');
   });
 
@@ -290,6 +301,86 @@ describe('OrderService', () => {
       const context = mockExecutionContext('USER', []);
 
       expect(guard.canActivate(context)).toBe(true);
+    });
+  });
+
+  describe('changeOrderStatus', () => {
+    const orderId = 'o1';
+
+    it('should throw if order not found', async () => {
+      jest.spyOn(service, 'findOne').mockResolvedValue(null);
+
+      await expect(
+        service.changeOrderStatus({
+          order_id: orderId,
+          status: OrderStatusEnum.CONFIRMED,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw if invalid transition', async () => {
+      jest.spyOn(service, 'findOne').mockResolvedValue({
+        id: orderId,
+        order_status: OrderStatusEnum.COMPLETED,
+      } as any);
+
+      await expect(
+        service.changeOrderStatus({
+          order_id: orderId,
+          status: OrderStatusEnum.PENDING,
+        }),
+      ).rejects.toThrow(NotAcceptableException);
+    });
+
+    it('should update status normally', async () => {
+      jest.spyOn(service, 'findOne').mockResolvedValue({
+        id: orderId,
+        order_status: OrderStatusEnum.PENDING,
+      } as any);
+
+      prisma.order.update.mockResolvedValue({});
+
+      const res = await service.changeOrderStatus({
+        order_id: orderId,
+        status: OrderStatusEnum.CONFIRMED,
+      });
+
+      expect(prisma.order.update).toHaveBeenCalled();
+      expect(res.message).toBe('This order has been Confirmed');
+    });
+
+    it('should cancel order and restore stock via transaction', async () => {
+      jest.spyOn(service, 'findOne').mockResolvedValue({
+        id: orderId,
+        order_status: OrderStatusEnum.CONFIRMED,
+      } as any);
+
+      const mockTx = {
+        orderItem: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ product_id: 'p1', quantity: 2 }]),
+        },
+        product: {
+          update: jest.fn(),
+        },
+        order: {
+          update: jest.fn().mockResolvedValue({}),
+        },
+      };
+
+      prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
+
+      const res = await service.changeOrderStatus({
+        order_id: orderId,
+        status: OrderStatusEnum.CANCELLED,
+      });
+
+      expect(mockTx.orderItem.findMany).toHaveBeenCalled();
+      expect(mockTx.product.update).toHaveBeenCalled();
+      expect(mockTx.order.update).toHaveBeenCalled();
+
+      expect(res.message).toBe('This order has been Cancelled by our team');
     });
   });
 });

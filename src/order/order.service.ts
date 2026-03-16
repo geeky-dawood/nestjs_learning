@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotAcceptableException,
   NotFoundException,
 } from '@nestjs/common';
 import { BaseService } from 'src/common/database/base.service';
@@ -294,31 +295,29 @@ export class OrderService extends BaseService<Order> {
       }
 
       const validtransition: Record<OrderStatusEnum, OrderStatusEnum[]> = {
-        PENDING: ['CONFIRMED', 'CANCELLED'],
-        CONFIRMED: ['CANCELLED', 'COMPLETED'],
-        CANCELLED: [],
-        COMPLETED: [],
+        [OrderStatusEnum.PENDING]: [
+          OrderStatusEnum.CONFIRMED,
+          OrderStatusEnum.CANCELLED,
+        ],
+        [OrderStatusEnum.CONFIRMED]: [
+          OrderStatusEnum.CANCELLED,
+          OrderStatusEnum.COMPLETED,
+        ],
+        [OrderStatusEnum.CANCELLED]: [],
+        [OrderStatusEnum.COMPLETED]: [],
       };
 
       const currentStatus = order.order_status;
 
       if (!validtransition[currentStatus]?.includes(status)) {
-        throw new BadRequestException(
+        throw new NotAcceptableException(
           `Cannot transition from ${currentStatus} to ${status}`,
         );
       }
 
-      await this.update(
-        {
-          id: order_id,
-        },
-        {
-          order_status: status,
-        },
-      );
-
+      await this.updateOrderStatus(order_id, status);
       return {
-        message: 'Order status updated successfully',
+        message: this.meanfulMsgOnStatusChange(status),
       };
     } catch (error) {
       console.log(error);
@@ -382,5 +381,63 @@ export class OrderService extends BaseService<Order> {
         total_records: total,
       },
     };
+  }
+
+  private updateOrderStatus(orderId: string, newStatus: OrderStatusEnum) {
+    switch (newStatus) {
+      case OrderStatusEnum.CANCELLED:
+        return this.prisma.$transaction(async (tx) => {
+          const orderItems = await tx.orderItem.findMany({
+            where: {
+              order_id: orderId,
+            },
+          });
+
+          for (const item of orderItems) {
+            await tx.product.update({
+              where: {
+                id: item.product_id,
+              },
+              data: {
+                quantity: {
+                  increment: item.quantity,
+                },
+              },
+            });
+          }
+
+          return tx.order.update({
+            where: {
+              id: orderId,
+            },
+            data: {
+              order_status: newStatus,
+            },
+          });
+        });
+
+      default:
+        return this.prisma.order.update({
+          where: {
+            id: orderId,
+          },
+          data: {
+            order_status: newStatus,
+          },
+        });
+    }
+  }
+
+  private meanfulMsgOnStatusChange(status: OrderStatusEnum): string {
+    switch (status) {
+      case OrderStatusEnum.CONFIRMED:
+        return 'This order has been Confirmed';
+      case OrderStatusEnum.CANCELLED:
+        return 'This order has been Cancelled by our team';
+      case OrderStatusEnum.COMPLETED:
+        return 'This order has been Completed. Thank you for shopping with us!';
+      default:
+        return 'Status Updated';
+    }
   }
 }
