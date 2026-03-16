@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { BaseService } from 'src/common/database/base.service';
-import { OrderFilterDto } from 'src/dto/filter.dto';
+import { OrderStatusDto } from 'src/dto/order_status.dto';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
 import { SearchDto } from 'src/dto/serach.dto';
 import {
@@ -275,6 +275,53 @@ export class OrderService extends BaseService<Order> {
       if (error.code === 'P2025') {
         throw new NotFoundException('Invalid order-id');
       }
+      throw error;
+    }
+  }
+
+  async changeOrderStatus(payload: OrderStatusDto) {
+    const { order_id, status } = payload;
+
+    try {
+      const order = await this.findOne({
+        where: {
+          id: order_id,
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException('Invalid order Id');
+      }
+
+      const validtransition: Record<OrderStatusEnum, OrderStatusEnum[]> = {
+        PENDING: ['CONFIRMED', 'CANCELLED'],
+        CONFIRMED: ['CANCELLED', 'COMPLETED'],
+        CANCELLED: [],
+        COMPLETED: [],
+      };
+
+      const currentStatus = order.order_status;
+
+      if (!validtransition[currentStatus]?.includes(status)) {
+        throw new BadRequestException(
+          `Cannot transition from ${currentStatus} to ${status}`,
+        );
+      }
+
+      await this.update(
+        {
+          id: order_id,
+        },
+        {
+          order_status: status,
+        },
+      );
+
+      return {
+        message: 'Order status updated successfully',
+      };
+    } catch (error) {
+      console.log(error);
       throw error;
     }
   }

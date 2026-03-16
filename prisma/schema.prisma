@@ -17,8 +17,8 @@ enum SigninResponseEnum {
 enum OrderStatusEnum {
   PENDING
   CONFIRMED
-  SHIPPING
-  DELIVERED
+  CANCELLED
+  COMPLETED
 }
 
 enum UserRole {

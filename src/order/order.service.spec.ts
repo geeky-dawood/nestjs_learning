@@ -174,7 +174,11 @@ describe('OrderService', () => {
       prisma.order.findMany.mockResolvedValue(mockOrders.slice(0, 2));
       prisma.order.count.mockResolvedValue(3);
 
-      const result = await service.getAllOrders({ page: 1, limit: 2 });
+      const result = await service.getAllOrders({
+        page: 1,
+        limit: 2,
+        search: '',
+      });
 
       expect(result.data).toEqual(mockOrders.slice(0, 2));
       expect(result.meta).toEqual({
@@ -194,7 +198,12 @@ describe('OrderService', () => {
       prisma.order.findMany.mockResolvedValue(filteredOrders);
       prisma.order.count.mockResolvedValue(2);
 
-      const result = await service.getAllOrders({ page: 1, limit: 10, filter });
+      const result = await service.getAllOrders({
+        page: 1,
+        limit: 10,
+        filter,
+        search: '',
+      });
 
       expect(result.data.every((o) => o.order_status === filter)).toBe(true);
       expect(result.meta.total_records).toBe(2);
@@ -204,7 +213,7 @@ describe('OrderService', () => {
       prisma.order.findMany.mockRejectedValue(new Error('Database error'));
 
       await expect(
-        service.getAllOrders({ page: 1, limit: 10 }),
+        service.getAllOrders({ page: 1, limit: 10, search: '' }),
       ).rejects.toThrow('Database error');
     });
 
@@ -212,7 +221,11 @@ describe('OrderService', () => {
       prisma.order.findMany.mockResolvedValue([]);
       prisma.order.count.mockResolvedValue(0);
 
-      const result = await service.getAllOrders({});
+      const result = await service.getAllOrders({
+        page: 1,
+        limit: 10,
+        search: '',
+      });
 
       expect(result.data).toEqual([]);
       expect(prisma.order.findMany).toHaveBeenCalled();
