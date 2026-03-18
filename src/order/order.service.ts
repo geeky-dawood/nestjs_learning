@@ -94,6 +94,22 @@ export class OrderService extends BaseService<Order> {
       }
 
       return this.prisma.$transaction(async (tx) => {
+        for (const item of orderItems) {
+          const decrementResult = await tx.product.updateMany({
+            where: {
+              id: item.product_id,
+              quantity: { gte: item.quantity },
+            },
+            data: { quantity: { decrement: item.quantity } },
+          });
+
+          if (decrementResult.count !== 1) {
+            throw new BadRequestException(
+              `Insufficient stock for product ID ${item.product_id}.`,
+            );
+          }
+        }
+
         const order = await tx.order.create({
           data: {
             order_number: this.generateOrderNumber(),
@@ -114,13 +130,6 @@ export class OrderService extends BaseService<Order> {
         await tx.orderItem.createMany({
           data: orderItemsData,
         });
-
-        for (const item of orderItems) {
-          await tx.product.update({
-            where: { id: item.product_id },
-            data: { quantity: { decrement: item.quantity } },
-          });
-        }
 
         return {
           message: 'order Placed',

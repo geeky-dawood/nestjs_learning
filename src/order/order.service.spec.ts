@@ -41,8 +41,17 @@ describe('OrderService', () => {
 
       product: {
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
     };
+
+    prisma.$transaction.mockImplementation(async (arg: any) => {
+      if (typeof arg === 'function') {
+        return arg(prisma);
+      }
+
+      return Promise.all(arg);
+    });
 
     productService = { findMany: jest.fn() };
 
@@ -130,7 +139,7 @@ describe('OrderService', () => {
         }),
       },
       orderItem: { createMany: jest.fn() },
-      product: { update: jest.fn() },
+      product: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
 
     prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
@@ -142,7 +151,80 @@ describe('OrderService', () => {
     expect(result.message).toBe('order Placed');
     expect(mockTx.order.create).toHaveBeenCalled();
     expect(mockTx.orderItem.createMany).toHaveBeenCalled();
-    expect(mockTx.product.update).toHaveBeenCalled();
+    expect(mockTx.product.updateMany).toHaveBeenCalled();
+  });
+
+  it('should throw if stock changes during transaction', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: userId });
+
+    productService.findMany.mockResolvedValue([
+      { id: 'p1', price: 100, quantity: 10 },
+    ]);
+
+    const mockTx = {
+      order: {
+        create: jest.fn(),
+      },
+      orderItem: { createMany: jest.fn() },
+      product: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    };
+
+    prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
+
+    await expect(
+      service.createOrder(userId, {
+        items: [{ product_id: 'p1', quantity: 1 }],
+      }),
+    ).rejects.toThrow(/Insufficient stock/);
+
+    expect(mockTx.order.create).not.toHaveBeenCalled();
+  });
+
+  it('should prevent overselling for concurrent order requests', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: userId });
+
+    productService.findMany.mockResolvedValue([
+      { id: 'p1', price: 100, quantity: 1 },
+    ]);
+
+    const mockTx = {
+      order: {
+        create: jest.fn().mockResolvedValueOnce({
+          id: 'o1',
+          order_number: 'ABC123456',
+          total_price: 100,
+        }),
+      },
+      orderItem: { createMany: jest.fn() },
+      product: {
+        updateMany: jest
+          .fn()
+          .mockResolvedValueOnce({ count: 1 })
+          .mockResolvedValueOnce({ count: 0 }),
+      },
+    };
+
+    prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
+
+    const payload = { items: [{ product_id: 'p1', quantity: 1 }] };
+
+    const [firstResult, secondResult] = await Promise.allSettled([
+      service.createOrder(userId, payload),
+      service.createOrder(userId, payload),
+    ]);
+
+    const fulfilled = [firstResult, secondResult].filter(
+      (result) => result.status === 'fulfilled',
+    );
+    const rejected = [firstResult, secondResult].filter(
+      (result) => result.status === 'rejected',
+    );
+
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(mockTx.product.updateMany).toHaveBeenCalledTimes(2);
+    expect(mockTx.order.create).toHaveBeenCalledTimes(1);
+    expect(mockTx.orderItem.createMany).toHaveBeenCalledTimes(1);
   });
 
   it('should throw if order not found', async () => {

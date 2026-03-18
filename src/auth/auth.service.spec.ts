@@ -8,14 +8,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { hashpassword, verifyHashPassword } from 'src/helpers/hash.helper';
-import { generateToken } from 'src/utils/jwt.generator';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 jest.mock('src/helpers/hash.helper');
-jest.mock('src/utils/jwt.generator');
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: any;
+  let jwtService: any;
+  let configService: any;
 
   const user = {
     id: 'user-1',
@@ -27,13 +29,32 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     prisma = {
-      user: { findUnique: jest.fn(), update: jest.fn() },
-      loginAttempts: { create: jest.fn(), count: jest.fn() },
+      user: { findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
+      loginAttempts: { create: jest.fn(), findMany: jest.fn() },
+    };
+
+    jwtService = {
+      signAsync: jest.fn(),
+    };
+
+    configService = {
+      get: jest.fn((key: string) => {
+        if (key === 'MAX_WRONG_ATTEMPTS') return 5;
+        if (key === 'MAX_WRONG_ATTEMPTS_TIME_FRAME') return 60;
+        return undefined;
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: JwtService, useValue: jwtService },
+        { provide: ConfigService, useValue: configService },
+      ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
@@ -61,10 +82,11 @@ describe('AuthService', () => {
 
   it('should register successfully', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue(null);
-    jest
-      .spyOn(service, 'create')
-      .mockResolvedValue({ id: 'user-1', email: 'test@gmail.com' } as any);
     (hashpassword as jest.Mock).mockResolvedValue('hashedPassword');
+    prisma.user.create.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@gmail.com',
+    });
 
     const result = await service.signup({
       name: 'Test',
@@ -93,6 +115,7 @@ describe('AuthService', () => {
   it('should throw if account is locked', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue({
       ...user,
+      is_locked: true,
       lock_until: new Date(Date.now() + 60000),
     } as any);
 
@@ -107,7 +130,7 @@ describe('AuthService', () => {
   it('should throw unauthorized for wrong password', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue(user as any);
     (verifyHashPassword as jest.Mock).mockResolvedValue(false);
-    prisma.loginAttempts.count.mockResolvedValue(1);
+    prisma.loginAttempts.findMany.mockResolvedValue([{ id: '1' }]);
 
     await expect(
       service.signin({ email: 'test@gmail.com', password: 'Wrong123!' } as any),
@@ -117,7 +140,13 @@ describe('AuthService', () => {
   it('should lock account on 5th wrong attempt', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue(user as any);
     (verifyHashPassword as jest.Mock).mockResolvedValue(false);
-    prisma.loginAttempts.count.mockResolvedValue(5);
+    prisma.loginAttempts.findMany.mockResolvedValue([
+      { id: '1' },
+      { id: '2' },
+      { id: '3' },
+      { id: '4' },
+      { id: '5' },
+    ]);
 
     await expect(
       service.signin({ email: 'test@gmail.com', password: 'Wrong123!' } as any),
@@ -129,7 +158,7 @@ describe('AuthService', () => {
   it('should login successfully with correct password', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue(user as any);
     (verifyHashPassword as jest.Mock).mockResolvedValue(true);
-    (generateToken as jest.Mock).mockResolvedValue('token123');
+    jwtService.signAsync.mockResolvedValue('token123');
 
     const result = await service.signin({
       email: 'test@gmail.com',
