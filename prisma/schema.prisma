@@ -90,6 +90,7 @@ model Product {
   price       Int
   category    String?
   quantity    Int
+  is_deleted  Boolean @default(false)
 
   orders OrderItem[]
 

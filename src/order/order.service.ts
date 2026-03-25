@@ -60,6 +60,7 @@ export class OrderService extends BaseService<Order> {
       const products: Product[] = await this.productService.findMany({
         where: {
           id: { in: uniqueProductIds },
+          is_deleted: false,
         },
       });
 
