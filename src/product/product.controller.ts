@@ -1,8 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
-  HttpCode,
+  Param,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -16,13 +17,17 @@ export class ProductController {
   constructor(private productService: ProductService) {}
 
   @Post('/add-product')
-  createProduct(@Body() body: CreateProductDto) {
-    return this.productService.createProduct(body);
+  async createProduct(@Body() body: CreateProductDto) {
+    return await this.productService.createProduct(body);
   }
 
-  @HttpCode(200)
   @Get('/all-products')
-  allProducts() {
-    return this.productService.allProduct();
+  async allProducts() {
+    return await this.productService.allProduct();
+  }
+
+  @Delete('/delete/:product_id')
+  async deleteAProduct(@Param('product_id') product_id: string) {
+    return await this.productService.deleteAProduct(product_id);
   }
 }
