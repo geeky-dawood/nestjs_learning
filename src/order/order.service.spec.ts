@@ -26,6 +26,10 @@ describe('OrderService', () => {
 
       user: { findUnique: jest.fn() },
 
+      activityLogs: {
+        create: jest.fn(),
+      },
+
       order: {
         findMany: jest.fn(),
         count: jest.fn(),
@@ -140,6 +144,7 @@ describe('OrderService', () => {
       },
       orderItem: { createMany: jest.fn() },
       product: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      activityLogs: { create: jest.fn() },
     };
 
     prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
@@ -152,6 +157,16 @@ describe('OrderService', () => {
     expect(mockTx.order.create).toHaveBeenCalled();
     expect(mockTx.orderItem.createMany).toHaveBeenCalled();
     expect(mockTx.product.updateMany).toHaveBeenCalled();
+    expect(mockTx.activityLogs.create).toHaveBeenCalledWith({
+      data: {
+        user_id: userId,
+        order_id: 'o1',
+        action_type: 'ORDER_CREATED',
+        description: 'Order ABC123456 has been created.',
+        previous_status: null,
+        current_status: OrderStatusEnum.PENDING,
+      },
+    });
   });
 
   it('should throw if stock changes during transaction', async () => {
@@ -196,6 +211,7 @@ describe('OrderService', () => {
         }),
       },
       orderItem: { createMany: jest.fn() },
+      activityLogs: { create: jest.fn() },
       product: {
         updateMany: jest
           .fn()
@@ -225,6 +241,7 @@ describe('OrderService', () => {
     expect(mockTx.product.updateMany).toHaveBeenCalledTimes(2);
     expect(mockTx.order.create).toHaveBeenCalledTimes(1);
     expect(mockTx.orderItem.createMany).toHaveBeenCalledTimes(1);
+    expect(mockTx.activityLogs.create).toHaveBeenCalledTimes(1);
   });
 
   it('should throw if order not found', async () => {
@@ -418,6 +435,8 @@ describe('OrderService', () => {
       jest.spyOn(service, 'findOne').mockResolvedValue({
         id: orderId,
         order_status: OrderStatusEnum.PENDING,
+        user_id: userId,
+        order_number: 'ABC123456',
       } as any);
 
       prisma.order.update.mockResolvedValue({});
@@ -428,6 +447,17 @@ describe('OrderService', () => {
       });
 
       expect(prisma.order.update).toHaveBeenCalled();
+      expect(prisma.activityLogs.create).toHaveBeenCalledWith({
+        data: {
+          user_id: userId,
+          order_id: orderId,
+          action_type: 'ORDER_STATUS_UPDATED',
+          description:
+            'Order ABC123456 status changed from PENDING to CONFIRMED.',
+          previous_status: OrderStatusEnum.PENDING,
+          current_status: OrderStatusEnum.CONFIRMED,
+        },
+      });
       expect(res.message).toBe('This order has been Confirmed');
     });
 
@@ -435,6 +465,8 @@ describe('OrderService', () => {
       jest.spyOn(service, 'findOne').mockResolvedValue({
         id: orderId,
         order_status: OrderStatusEnum.CONFIRMED,
+        user_id: userId,
+        order_number: 'XYZ654321',
       } as any);
 
       const mockTx = {
@@ -461,8 +493,36 @@ describe('OrderService', () => {
       expect(mockTx.orderItem.findMany).toHaveBeenCalled();
       expect(mockTx.product.update).toHaveBeenCalled();
       expect(mockTx.order.update).toHaveBeenCalled();
-
+      expect(prisma.activityLogs.create).toHaveBeenCalledWith({
+        data: {
+          user_id: userId,
+          order_id: orderId,
+          action_type: 'ORDER_STATUS_UPDATED',
+          description:
+            'Order XYZ654321 status changed from CONFIRMED to CANCELLED.',
+          previous_status: OrderStatusEnum.CONFIRMED,
+          current_status: OrderStatusEnum.CANCELLED,
+        },
+      });
       expect(res.message).toBe('This order has been Cancelled by our team');
+    });
+
+    it('should not create an activity log when status transition is rejected', async () => {
+      jest.spyOn(service, 'findOne').mockResolvedValue({
+        id: orderId,
+        order_status: OrderStatusEnum.COMPLETED,
+        user_id: userId,
+        order_number: 'NOLOG123',
+      } as any);
+
+      await expect(
+        service.changeOrderStatus({
+          order_id: orderId,
+          status: OrderStatusEnum.PENDING,
+        }),
+      ).rejects.toThrow(NotAcceptableException);
+
+      expect(prisma.activityLogs.create).not.toHaveBeenCalled();
     });
   });
 });

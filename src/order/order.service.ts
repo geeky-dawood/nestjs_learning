@@ -9,6 +9,7 @@ import { OrderStatusDto } from 'src/dto/order_status.dto';
 import { PlaceOrderDto } from 'src/dto/place_order.dto';
 import { SearchDto } from 'src/dto/serach.dto';
 import {
+  ActivityActionType,
   Order,
   OrderStatusEnum,
   Prisma,
@@ -130,6 +131,17 @@ export class OrderService extends BaseService<Order> {
 
         await tx.orderItem.createMany({
           data: orderItemsData,
+        });
+
+        await tx.activityLogs.create({
+          data: {
+            user_id: user_id,
+            order_id: order.id,
+            action_type: ActivityActionType.ORDER_CREATED,
+            description: `Order ${order.order_number} has been created.`,
+            previous_status: null,
+            current_status: OrderStatusEnum.PENDING,
+          },
         });
 
         return {
@@ -326,6 +338,18 @@ export class OrderService extends BaseService<Order> {
       }
 
       await this.updateOrderStatus(order_id, status);
+
+      await this.prisma.activityLogs.create({
+        data: {
+          user_id: order.user_id,
+          order_id: order.id,
+          action_type: ActivityActionType.ORDER_STATUS_UPDATED,
+          description: `Order ${order.order_number} status changed from ${currentStatus} to ${status}.`,
+          previous_status: currentStatus,
+          current_status: status,
+        },
+      });
+
       return {
         message: this.meanfulMsgOnStatusChange(status),
       };

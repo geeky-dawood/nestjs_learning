@@ -26,6 +26,12 @@ enum UserRole {
   USER
 }
 
+enum ActivityActionType {
+  ORDER_CREATED
+  ORDER_STATUS_UPDATED
+  ORDER_CANCELLED
+}
+
 model User {
   id              String   @id @default(uuid())
   name            String
@@ -113,6 +119,24 @@ model OrderItem {
   product Product @relation(fields: [product_id], references: [id])
 
   @@map("order_items")
+}
+
+model ActivityLogs {
+  id String @id @default(uuid())
+
+  user_id  String
+  order_id String?
+
+  previous_status OrderStatusEnum?
+  current_status  OrderStatusEnum?
+
+  action_type ActivityActionType
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("activity_logs")
 }
 
 model Address {
