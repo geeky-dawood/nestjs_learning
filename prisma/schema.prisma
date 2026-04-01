@@ -30,6 +30,15 @@ enum ActivityActionType {
   ORDER_CREATED
   ORDER_STATUS_UPDATED
   ORDER_CANCELLED
+  ORDER_DELETED
+}
+
+enum RequestMethod {
+  POST
+  PUT
+  DELETE
+  GET
+  PATCH
 }
 
 model User {
@@ -127,8 +136,12 @@ model ActivityLogs {
   user_id  String
   order_id String?
 
-  previous_status OrderStatusEnum?
-  current_status  OrderStatusEnum?
+  previous_status          OrderStatusEnum?
+  current_status           OrderStatusEnum?
+  ordered_product_quantity Int?
+  order_total_price        Int?
+  action_performed_by      UserRole
+  request_method           RequestMethod
 
   action_type ActivityActionType
   description String?

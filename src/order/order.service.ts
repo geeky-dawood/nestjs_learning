@@ -14,6 +14,8 @@ import {
   OrderStatusEnum,
   Prisma,
   Product,
+  RequestMethod,
+  UserRole,
 } from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductService } from 'src/product/product.service';
@@ -133,15 +135,20 @@ export class OrderService extends BaseService<Order> {
           data: orderItemsData,
         });
 
-        await tx.activityLogs.create({
-          data: {
-            user_id: user_id,
-            order_id: order.id,
-            action_type: ActivityActionType.ORDER_CREATED,
-            description: `Order ${order.order_number} has been created.`,
-            previous_status: null,
-            current_status: OrderStatusEnum.PENDING,
-          },
+        await this.trackOrderActivity({
+          user_id: user_id,
+          order_id: order.id,
+          action_type: ActivityActionType.ORDER_CREATED,
+          description: `Order ${order.order_number} has been created.`,
+          previous_status: null,
+          current_status: OrderStatusEnum.PENDING,
+          ordered_product_quantity: orderItems.reduce(
+            (total, item) => total + item.quantity,
+            0,
+          ),
+          order_total_price: totalAmount,
+          action_performed_by: UserRole.USER,
+          request_method: RequestMethod.POST,
         });
 
         return {
@@ -277,27 +284,45 @@ export class OrderService extends BaseService<Order> {
 
   async deleteOrderByOrderId(orderId: string) {
     try {
-      await this.prisma.$transaction([
-        this.prisma.orderItem.deleteMany({
-          where: {
-            order_id: orderId,
-          },
-        }),
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: { items: true },
+      });
 
-        this.prisma.order.delete({
-          where: {
-            id: orderId,
-          },
-        }),
-      ]);
-
-      return {
-        message: 'Deleted Successfully',
-      };
-    } catch (error) {
-      if (error.code === 'P2025') {
+      if (!order) {
         throw new NotFoundException('Invalid order-id');
       }
+
+      const totalQty = order.items.reduce(
+        (total, item) => total + item.quantity,
+        0,
+      );
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.orderItem.deleteMany({
+          where: { order_id: orderId },
+        });
+
+        await tx.order.delete({
+          where: { id: orderId },
+        });
+
+        await this.trackOrderActivity({
+          user_id: order.user_id,
+          order_id: orderId,
+          action_type: ActivityActionType.ORDER_DELETED,
+          description: `Order ${order.order_number} deleted`,
+          previous_status: order.order_status,
+          current_status: OrderStatusEnum.CANCELLED,
+          ordered_product_quantity: totalQty,
+          order_total_price: order.total_price,
+          action_performed_by: UserRole.USER,
+          request_method: RequestMethod.DELETE,
+        });
+      });
+
+      return { message: 'Deleted Successfully' };
+    } catch (error) {
       throw error;
     }
   }
@@ -306,9 +331,12 @@ export class OrderService extends BaseService<Order> {
     const { order_id, status } = payload;
 
     try {
-      const order = await this.findOne({
+      const order = await this.prisma.order.findUnique({
         where: {
           id: order_id,
+        },
+        include: {
+          items: true,
         },
       });
 
@@ -339,15 +367,26 @@ export class OrderService extends BaseService<Order> {
 
       await this.updateOrderStatus(order_id, status);
 
-      await this.prisma.activityLogs.create({
-        data: {
-          user_id: order.user_id,
-          order_id: order.id,
-          action_type: ActivityActionType.ORDER_STATUS_UPDATED,
-          description: `Order ${order.order_number} status changed from ${currentStatus} to ${status}.`,
-          previous_status: currentStatus,
-          current_status: status,
+      const orderItems = await this.prisma.orderItem.findMany({
+        where: {
+          order_id: order_id,
         },
+      });
+
+      await this.trackOrderActivity({
+        user_id: order.user_id,
+        order_id: order.id,
+        action_type: ActivityActionType.ORDER_STATUS_UPDATED,
+        description: `Order ${order.order_number} status changed from ${currentStatus} to ${status}.`,
+        previous_status: currentStatus,
+        current_status: status,
+        order_total_price: order.total_price,
+        action_performed_by: UserRole.ADMIN,
+        request_method: RequestMethod.PATCH,
+        ordered_product_quantity: orderItems.reduce(
+          (total, item) => total + item.quantity,
+          0,
+        ),
       });
 
       return {
@@ -473,5 +512,22 @@ export class OrderService extends BaseService<Order> {
       default:
         return 'Status Updated';
     }
+  }
+
+  private async trackOrderActivity(data: {
+    user_id: string;
+    order_id: string;
+    action_type: ActivityActionType;
+    description: string;
+    previous_status: OrderStatusEnum | null;
+    current_status: OrderStatusEnum | null;
+    ordered_product_quantity?: number;
+    order_total_price?: number;
+    action_performed_by: UserRole;
+    request_method: RequestMethod;
+  }) {
+    return this.prisma.activityLogs.create({
+      data,
+    });
   }
 }
