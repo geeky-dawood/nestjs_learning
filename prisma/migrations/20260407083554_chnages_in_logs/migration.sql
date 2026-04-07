@@ -8,6 +8,9 @@
 -- CreateEnum
 CREATE TYPE "RequestMethod" AS ENUM ('POST', 'PUT', 'DELETE', 'GET', 'PATCH');
 
+-- AlterEnum
+ALTER TYPE "ActivityActionType" ADD VALUE 'ORDER_DELETED';
+
 -- AlterTable
 ALTER TABLE "activity_logs" ADD COLUMN     "action_performed_by" "UserRole" NOT NULL,
 ADD COLUMN     "order_total_price" INTEGER,

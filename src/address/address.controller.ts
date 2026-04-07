@@ -6,10 +6,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/guard/jwt.auth.guard';
+import { JwtAuthGuard } from '../auth/guard/jwt.auth.guard';
 import { AddressService } from './address.service';
-import { CreateAddressDto } from 'src/dto/create_address.dto';
-import { GetUser } from 'src/auth/decorator/user.decorator';
+import { CreateAddressDto } from '../dto/create_address.dto';
+import { GetUser } from '../auth/decorator/user.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('address')

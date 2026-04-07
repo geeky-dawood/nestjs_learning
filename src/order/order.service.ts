@@ -4,10 +4,10 @@ import {
   NotAcceptableException,
   NotFoundException,
 } from '@nestjs/common';
-import { BaseService } from 'src/common/database/base.service';
-import { OrderStatusDto } from 'src/dto/order_status.dto';
-import { PlaceOrderDto } from 'src/dto/place_order.dto';
-import { SearchDto } from 'src/dto/serach.dto';
+import { BaseService } from '../common/database/base.service';
+import { OrderStatusDto } from '../dto/order_status.dto';
+import { PlaceOrderDto } from '../dto/place_order.dto';
+import { SearchDto } from '../dto/serach.dto';
 import {
   ActivityActionType,
   Order,
@@ -16,10 +16,11 @@ import {
   Product,
   RequestMethod,
   UserRole,
-} from 'src/generated/prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { ProductService } from 'src/product/product.service';
-import { PaginationDto } from 'src/utils/pagination';
+} from '../generated/prisma/client';
+
+import { ProductService } from '../product/product.service';
+import { PaginationDto } from '../utils/pagination';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class OrderService extends BaseService<Order> {

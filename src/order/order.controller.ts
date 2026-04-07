@@ -11,13 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
-import { PlaceOrderDto } from 'src/dto/place_order.dto';
-import { PaginationDto } from 'src/utils/pagination';
-import { JwtAuthGuard } from 'src/auth/guard/jwt.auth.guard';
-import { RolesGuard } from 'src/auth/guard/role.auth.guard';
-import { Roles } from 'src/auth/decorator/role.decorator';
-import { SearchDto } from 'src/dto/serach.dto';
-import { OrderStatusDto } from 'src/dto/order_status.dto';
+import { PlaceOrderDto } from '../dto/place_order.dto';
+import { PaginationDto } from '../utils/pagination';
+import { JwtAuthGuard } from '../auth/guard/jwt.auth.guard';
+import { RolesGuard } from '../auth/guard/role.auth.guard';
+import { Roles } from '../auth/decorator/role.decorator';
+import { SearchDto } from '../dto/serach.dto';
+import { OrderStatusDto } from '../dto/order_status.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('order')

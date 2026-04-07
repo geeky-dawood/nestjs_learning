@@ -7,9 +7,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/guard/jwt.auth.guard';
+import { JwtAuthGuard } from '../auth/guard/jwt.auth.guard';
 import { ProductService } from './product.service';
-import { CreateProductDto } from 'src/dto/create_product.dto';
+import { CreateProductDto } from '../dto/create_product.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('product')

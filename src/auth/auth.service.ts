@@ -5,13 +5,13 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { SignupDto } from 'src/dto/signup.dto';
-import { hashpassword, verifyHashPassword } from 'src/helpers/hash.helper';
-import { SigninDto } from 'src/dto/signin.dto';
-import { SigninResponseEnum } from 'src/generated/prisma/enums';
-import { User } from 'src/generated/prisma/client';
-import { BaseService } from 'src/common/database/base.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { SignupDto } from '../dto/signup.dto';
+import { hashpassword, verifyHashPassword } from '../helpers/hash.helper';
+import { SigninDto } from '../dto/signin.dto';
+import { SigninResponseEnum } from '../generated/prisma/enums';
+import { User } from '../generated/prisma/client';
+import { BaseService } from '../common/database/base.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 

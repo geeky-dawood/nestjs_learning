@@ -1,5 +1,4 @@
-import { Prisma } from 'src/generated/prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 export class BaseService<T, CreateDto = any> {
   constructor(
