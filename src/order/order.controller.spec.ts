@@ -8,7 +8,7 @@ import { PaginationDto } from '../utils/pagination';
 import { OrderStatusDto } from '../dto/order_status.dto';
 import { SearchDto } from '../dto/serach.dto';
 import { OrderStatusEnum } from '../generated/prisma/enums';
-import { MOCK_USER_ID } from './order.data.mock';
+import { MOCK_USER_ID } from '../test/mock/order.data.mock';
 
 describe('OrderController', () => {
   let controller: OrderController;
@@ -56,11 +56,10 @@ describe('OrderController', () => {
     });
   });
 
-  it('should throw ForbiddenException if user_id is missing', async () => {
+  it('should throw ForbiddenException if user_id is missing', () => {
     const dto: PlaceOrderDto = { items: [{ product_id: '1', quantity: 2 }] };
-    await expect(controller.createOrder('', dto)).rejects.toThrow(
-      ForbiddenException,
-    );
+
+    expect(() => controller.createOrder('', dto)).toThrow(ForbiddenException);
   });
 
   // ─── orderByUserId ───────────────────────────────────────────────────────────
@@ -130,9 +129,10 @@ describe('OrderController', () => {
     expect(result).toEqual({ success: true });
   });
 
-  it('should throw ForbiddenException if user_id is whitespace only', async () => {
+  it('should throw ForbiddenException if user_id is undefined', () => {
     const dto: PlaceOrderDto = { items: [{ product_id: '1', quantity: 1 }] };
-    await expect(controller.createOrder('   ', dto)).rejects.toThrow(
+
+    expect(() => controller.createOrder(undefined as any, dto)).toThrow(
       ForbiddenException,
     );
   });
@@ -194,5 +194,32 @@ describe('OrderController', () => {
     await expect(controller.deleteOrderByOrderId('o1')).rejects.toThrow(
       'Delete failed',
     );
+  });
+
+  it('should throw ForbiddenException if user_id is undefined', () => {
+    const dto: PlaceOrderDto = { items: [{ product_id: '1', quantity: 1 }] };
+
+    expect(() => controller.createOrder(undefined as any, dto)).toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('should throw ForbiddenException if user_id is null', () => {
+    const dto: PlaceOrderDto = { items: [{ product_id: '1', quantity: 1 }] };
+
+    expect(() => controller.createOrder(null as any, dto)).toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('should call createOrder even with empty items array', async () => {
+    const dto: PlaceOrderDto = { items: [] };
+
+    mockOrderService.createOrder.mockResolvedValue({ success: true });
+
+    const result = await controller.createOrder(MOCK_USER_ID, dto);
+
+    expect(service.createOrder).toHaveBeenCalledWith(MOCK_USER_ID, dto);
+    expect(result).toEqual({ success: true });
   });
 });

@@ -45,7 +45,7 @@ import {
   createStockExhaustedTx,
   createCancelOrderTx,
   createDeleteOrderTx,
-} from './order.data.mock';
+} from '../test/mock/order.data.mock';
 import { PrismaClient } from '@prisma/client/extension';
 
 const mockTx = {
@@ -252,7 +252,7 @@ describe('OrderService', () => {
         });
 
         // activity log written
-        expect(mockTx.activityLogs.create).toHaveBeenCalledWith(
+        expect(prisma.activityLogs.create).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
               action_type: 'ORDER_CREATED',
@@ -366,6 +366,18 @@ describe('OrderService', () => {
           service.createOrder(MOCK_USER_ID, PLACE_ORDER_SINGLE_ITEM),
         ).rejects.toThrow('Unexpected DB failure');
       });
+    });
+
+    it('should throw BadRequestException for duplicate items', async () => {
+      jest
+        .spyOn(service['prisma'].user, 'findUnique')
+        .mockResolvedValue(MOCK_USER as any);
+
+      await expect(
+        service.createOrder(MOCK_USER_ID, PLACE_ORDER_DUPLICATE_ITEMS),
+      ).rejects.toThrow(
+        'Duplicate product found in order items. Each product must appear only once.',
+      );
     });
   });
 
@@ -622,14 +634,13 @@ describe('OrderService', () => {
       prisma.$transaction.mockImplementation(async (cb: any) => cb(mockTx));
 
       await service.deleteOrderByOrderId(MOCK_ORDER_ID);
-
-      expect(mockTx.activityLogs.create).toHaveBeenCalledWith(
+      expect(prisma.activityLogs.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             action_type: 'ORDER_DELETED',
             current_status: OrderStatusEnum.CANCELLED,
             previous_status: OrderStatusEnum.PENDING,
-            ordered_product_quantity: 3, // 2 + 1
+            ordered_product_quantity: 3,
           }),
         }),
       );
@@ -644,9 +655,11 @@ describe('OrderService', () => {
       const result = await service.deleteOrderByOrderId(MOCK_ORDER_ID);
 
       expect(result.message).toBe('Deleted Successfully');
-      expect(mockTx.activityLogs.create).toHaveBeenCalledWith(
+      expect(prisma.activityLogs.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ ordered_product_quantity: 0 }),
+          data: expect.objectContaining({
+            ordered_product_quantity: 0,
+          }),
         }),
       );
     });

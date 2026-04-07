@@ -6,12 +6,13 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { hashpassword, verifyHashPassword } from 'src/helpers/hash.helper';
+import { PrismaService } from '../prisma/prisma.service';
+import { hashpassword, verifyHashPassword } from '../helpers/hash.helper';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 
-jest.mock('src/helpers/hash.helper');
+jest.mock('../helpers/hash.helper');
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -82,7 +83,9 @@ describe('AuthService', () => {
 
   it('should register successfully', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue(null);
-    (hashpassword as jest.Mock).mockResolvedValue('hashedPassword');
+    (hashpassword as jest.Mock<() => Promise<string>>).mockResolvedValue(
+      'hashedPassword',
+    );
     prisma.user.create.mockResolvedValue({
       id: 'user-1',
       email: 'test@gmail.com',
@@ -129,7 +132,9 @@ describe('AuthService', () => {
 
   it('should throw unauthorized for wrong password', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue(user as any);
-    (verifyHashPassword as jest.Mock).mockResolvedValue(false);
+    (verifyHashPassword as jest.Mock<() => Promise<boolean>>).mockResolvedValue(
+      false,
+    );
     prisma.loginAttempts.findMany.mockResolvedValue([{ id: '1' }]);
 
     await expect(
@@ -139,7 +144,9 @@ describe('AuthService', () => {
 
   it('should lock account on 5th wrong attempt', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue(user as any);
-    (verifyHashPassword as jest.Mock).mockResolvedValue(false);
+    (verifyHashPassword as jest.Mock<() => Promise<boolean>>).mockResolvedValue(
+      false,
+    );
     prisma.loginAttempts.findMany.mockResolvedValue([
       { id: '1' },
       { id: '2' },
@@ -157,7 +164,9 @@ describe('AuthService', () => {
 
   it('should login successfully with correct password', async () => {
     jest.spyOn(service, 'findOne').mockResolvedValue(user as any);
-    (verifyHashPassword as jest.Mock).mockResolvedValue(true);
+    (verifyHashPassword as jest.Mock<() => Promise<boolean>>).mockResolvedValue(
+      true,
+    );
     jwtService.signAsync.mockResolvedValue('token123');
 
     const result = await service.signin({

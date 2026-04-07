@@ -8,7 +8,7 @@ import {
   DELETED_PRODUCT,
   MOCK_ORDER,
   MOCK_CREATE_PAYLOAD,
-} from '../product/product.data.mock'; // import mock data
+} from '../test/mock/product.data.mock'; // import mock data
 import { CreateProductDto } from '../dto/create_product.dto';
 
 describe('ProductService', () => {
@@ -92,7 +92,7 @@ describe('ProductService', () => {
   });
 
   it('should soft delete a product', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue(MOCK_PRODUCT);
+    jest.spyOn(service, 'findOne').mockResolvedValue(MOCK_PRODUCT as any);
 
     jest.spyOn(service, 'update').mockResolvedValue({} as any);
 
@@ -111,23 +111,27 @@ describe('ProductService', () => {
   });
 
   it('should throw if product does not exist', async () => {
+    const updateSpy = jest.spyOn(service, 'update');
+
     jest.spyOn(service, 'findOne').mockResolvedValue(null);
 
     await expect(service.deleteAProduct('missing')).rejects.toThrow(
       new NotFoundException('product does not exists.'),
     );
 
-    expect(service.update).not.toHaveBeenCalled();
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it('should throw if product is already deleted', async () => {
-    jest.spyOn(service, 'findOne').mockResolvedValue(DELETED_PRODUCT);
+    const updateSpy = jest.spyOn(service, 'update');
+
+    jest.spyOn(service, 'findOne').mockResolvedValue(DELETED_PRODUCT as any);
 
     await expect(service.deleteAProduct('product-1')).rejects.toThrow(
       new NotFoundException('product does not exists.'),
     );
 
-    expect(service.update).not.toHaveBeenCalled();
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it('should rethrow error from deleteAProduct', async () => {

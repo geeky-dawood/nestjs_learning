@@ -3,7 +3,7 @@ import {
   OrderStatusEnum,
   RequestMethod,
   UserRole,
-} from '../generated/prisma/client';
+} from '../../generated/prisma/client';
 
 // ─── User Mocks ───────────────────────────────────────────────────────────────
 
@@ -86,27 +86,63 @@ export const MOCK_ORDER_CANCELLED = {
 export const MOCK_ORDER_WITH_ITEMS = {
   ...MOCK_ORDER_PENDING,
   items: [
-    { id: 'oi1', product_id: 'p1', quantity: 2, price: 100, order_id: MOCK_ORDER_ID },
-    { id: 'oi2', product_id: 'p2', quantity: 1, price: 200, order_id: MOCK_ORDER_ID },
+    {
+      id: 'oi1',
+      product_id: 'p1',
+      quantity: 2,
+      price: 100,
+      order_id: MOCK_ORDER_ID,
+    },
+    {
+      id: 'oi2',
+      product_id: 'p2',
+      quantity: 1,
+      price: 200,
+      order_id: MOCK_ORDER_ID,
+    },
   ],
 };
 
 export const MOCK_ORDER_CONFIRMED_WITH_ITEMS = {
   ...MOCK_ORDER_CONFIRMED,
   items: [
-    { id: 'oi1', product_id: 'p1', quantity: 2, price: 100, order_id: MOCK_ORDER_ID },
+    {
+      id: 'oi1',
+      product_id: 'p1',
+      quantity: 2,
+      price: 100,
+      order_id: MOCK_ORDER_ID,
+    },
   ],
 };
 
 // ─── Order Item Mocks ─────────────────────────────────────────────────────────
 
 export const MOCK_ORDER_ITEMS = [
-  { id: 'oi1', order_id: MOCK_ORDER_ID, product_id: 'p1', quantity: 2, price: 100 },
+  {
+    id: 'oi1',
+    order_id: MOCK_ORDER_ID,
+    product_id: 'p1',
+    quantity: 2,
+    price: 100,
+  },
 ];
 
 export const MOCK_ORDER_ITEMS_MULTI = [
-  { id: 'oi1', order_id: MOCK_ORDER_ID, product_id: 'p1', quantity: 2, price: 100 },
-  { id: 'oi2', order_id: MOCK_ORDER_ID, product_id: 'p2', quantity: 3, price: 200 },
+  {
+    id: 'oi1',
+    order_id: MOCK_ORDER_ID,
+    product_id: 'p1',
+    quantity: 2,
+    price: 100,
+  },
+  {
+    id: 'oi2',
+    order_id: MOCK_ORDER_ID,
+    product_id: 'p2',
+    quantity: 3,
+    price: 200,
+  },
 ];
 
 // ─── Place Order DTOs ─────────────────────────────────────────────────────────
@@ -243,13 +279,11 @@ export const MOCK_PAGINATION_META = (
  */
 export const createSuccessfulOrderTx = (jest: any) => ({
   order: {
-    create: jest
-      .fn()
-      .mockResolvedValue({
-        id: MOCK_ORDER_ID,
-        order_number: MOCK_ORDER_NUMBER,
-        total_price: 100,
-      }),
+    create: jest.fn().mockResolvedValue({
+      id: MOCK_ORDER_ID,
+      order_number: MOCK_ORDER_NUMBER,
+      total_price: 100,
+    }),
   },
   orderItem: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
   product: {
@@ -273,7 +307,10 @@ export const createStockExhaustedTx = (jest: any) => ({
 /**
  * Creates a mock transaction for cancel-order (restores stock).
  */
-export const createCancelOrderTx = (jest: any, orderItems = MOCK_ORDER_ITEMS) => ({
+export const createCancelOrderTx = (
+  jest: any,
+  orderItems = MOCK_ORDER_ITEMS,
+) => ({
   orderItem: {
     findMany: jest.fn().mockResolvedValue(orderItems),
   },
