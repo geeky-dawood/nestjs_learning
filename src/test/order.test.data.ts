@@ -1,5 +1,5 @@
-import { OrderProductDto } from 'src/dto/place_order.dto';
-import { Product } from 'src/generated/prisma/client';
+import { OrderProductDto } from '../dto/place_order.dto';
+import { Product } from '../generated/prisma/client';
 
 export const emptyOrderItems: OrderProductDto[] = [];
 

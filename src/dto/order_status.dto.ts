@@ -1,5 +1,5 @@
 import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
-import { OrderStatusEnum } from 'src/generated/prisma/enums';
+import { OrderStatusEnum } from '../generated/prisma/enums';
 
 export class OrderStatusDto {
   @IsString()

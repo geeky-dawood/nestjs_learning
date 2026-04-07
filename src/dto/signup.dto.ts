@@ -5,7 +5,7 @@ import {
   IsString,
   Matches,
 } from 'class-validator';
-import { UserRole } from 'src/generated/prisma/enums';
+import { UserRole } from '../generated/prisma/enums';
 
 export class SignupDto {
   @IsOptional()
