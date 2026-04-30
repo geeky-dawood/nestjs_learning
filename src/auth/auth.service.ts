@@ -5,194 +5,164 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { SignupDto } from '../dto/signup.dto';
-import { hashpassword, verifyHashPassword } from '../helpers/hash.helper';
-import { SigninDto } from '../dto/signin.dto';
-import { SigninResponseEnum } from '../generated/prisma/enums';
-import { User } from '../generated/prisma/client';
-import { BaseService } from '../common/database/base.service';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { BaseService } from '../common/database/base.service';
+import { SigninDto } from '../dto/signin.dto';
+import { SignupDto } from '../dto/signup.dto';
+import { User } from '../generated/prisma/client';
+import { SigninResponseEnum } from '../generated/prisma/enums';
+import { hashpassword, verifyHashPassword } from '../helpers/hash.helper';
+import { PrismaService } from '../prisma/prisma.service';
+import { SignupResponseDto } from '../dto/signup_response.dto';
+import { SigninResponseDto } from '../dto/signin_response.dto';
 
 @Injectable()
 export class AuthService extends BaseService<User> {
   constructor(
-    protected prisma: PrismaService,
-    private jwtService: JwtService,
+    protected readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {
     super(prisma, prisma.user);
   }
 
-  async signup(payload: SignupDto) {
-    try {
-      const desiredEmailFormate = this.desiredEmailReturn(payload.email);
+  async signup(payload: SignupDto): Promise<SignupResponseDto> {
+    const email = this.normalizeEmail(payload.email);
 
-      const alreadyUser = await this.findOne({
-        where: {
-          email: desiredEmailFormate,
-        },
-      });
+    const existing = await this.findOne({ where: { email } });
+    if (existing) {
+      throw new ConflictException('User with this email already exists.');
+    }
 
-      if (alreadyUser) {
-        throw new ConflictException('User with this email already exist.');
-      }
+    const password = await hashpassword(payload.password);
 
-      const originalPassword = payload.password;
-      const hash = await hashpassword(originalPassword);
+    const { id, role } = await this.prisma.user.create({
+      data: { ...payload, email, password },
+    });
 
-      const user = await this.prisma.user.create({
-        data: {
-          name: payload.name,
-          email: desiredEmailFormate,
-          password: hash,
-          dob: payload.dob,
-          profile_picture: payload.profile_picture,
-          role: payload.role,
-        },
-        omit: { password: true },
-      });
+    return {
+      message: 'Registration successful. You can now sign in.',
+      data: { id, email, role },
+    };
+  }
 
-      return {
-        message: 'Registration Successful',
-        data: {
-          ...user,
-        },
-      };
-    } catch (error) {
-      console.log(error);
-      throw error;
+  async signin(payload: SigninDto): Promise<SigninResponseDto> {
+    const email = this.normalizeEmail(payload.email);
+
+    const user = await this.findOne({ where: { email } });
+
+    if (!user || user.is_deleted) {
+      throw new NotFoundException('User not found.');
+    }
+
+    this.assertAccountNotLocked(user);
+
+    const isPasswordValid = await verifyHashPassword(
+      user.password,
+      payload.password,
+    );
+
+    await this.recordLoginAttempt(user, isPasswordValid);
+
+    if (!isPasswordValid) {
+      await this.handleFailedAttempt(user);
+    }
+
+    // Unlock account on successful login
+    await this.unlockAccount(user.id);
+
+    const access_token = await this.generateToken(user);
+    const { id, role } = user;
+
+    return {
+      message: 'Login successful.',
+      data: { id, email, role, access_token },
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+
+  private assertAccountNotLocked(user: User): void {
+    if (user.is_locked && user.lock_until && user.lock_until > new Date()) {
+      const secondsRemaining = this.secondsUntil(user.lock_until);
+      throw new ForbiddenException(
+        `Account is locked. Try again in ${secondsRemaining} second(s).`,
+      );
     }
   }
 
-  async signin(payload: SigninDto) {
-    try {
-      const desiredEmailFormate = this.desiredEmailReturn(payload.email);
-      const maxWrongAttempts = this.configService.get<number>(
-        'MAX_WRONG_ATTEMPTS',
-      )! as number;
+  private async handleFailedAttempt(user: User): Promise<never> {
+    const { maxAttempts, windowMs } = this.lockoutConfig();
+    const windowStart = new Date(Date.now() - windowMs);
 
-      const maxWrongAttemptsTimeFrame = this.configService.get<number>(
-        'MAX_WRONG_ATTEMPTS_TIME_FRAME',
-      )! as number;
-
-      let accountLockoutDuration = new Date(
-        Date.now() + Number(maxWrongAttemptsTimeFrame) * 1000,
-      );
-      let wrongAttemptTrackingTimeWindow = new Date(
-        Date.now() - Number(maxWrongAttemptsTimeFrame) * 1000,
-      );
-
-      let remainingTimeToUnlockAccount = Math.ceil(
-        (accountLockoutDuration.getTime() - Date.now()) / 1000,
-      );
-
-      const user = await this.findOne({
-        where: {
-          email: desiredEmailFormate,
-        },
-      });
-
-      if (!user || user.is_deleted) {
-        throw new NotFoundException('User not found.');
-      }
-
-      if (user.is_locked && user.lock_until && user.lock_until > new Date()) {
-        throw new ForbiddenException(
-          `Account locked due to multiple wrong attempts. Try after ${remainingTimeToUnlockAccount} seconds.`,
-        );
-      }
-
-      const isPasswordValid = await verifyHashPassword(
-        user.password,
-        payload.password,
-      );
-
-      if (!isPasswordValid) {
-        await this.UpdateLoginAttempt(user, isPasswordValid);
-        console.log(maxWrongAttempts);
-
-        const totalWrongAttempts = await this.prisma.loginAttempts.findMany({
-          where: {
-            user_id: user.id,
-            attempt_success: false,
-            createAt: {
-              gte: wrongAttemptTrackingTimeWindow,
-            },
-          },
-          take: Number(maxWrongAttempts),
-          orderBy: {
-            createAt: 'desc',
-          },
-        });
-
-        if (totalWrongAttempts.length >= maxWrongAttempts) {
-          await this.prisma.user.update({
-            where: {
-              id: user.id,
-            },
-            data: {
-              is_locked: true,
-              lock_until: accountLockoutDuration,
-            },
-          });
-          throw new ForbiddenException(
-            `Account locked due to multiple wrong attempts. Try after ${remainingTimeToUnlockAccount} seconds.`,
-          );
-        }
-
-        throw new UnauthorizedException('Invalid Credentials');
-      } else {
-        const accessToken = await this.generateToken(user);
-        const { password, ...result } = user;
-
-        await this.UpdateLoginAttempt(user, isPasswordValid);
-
-        return {
-          message: 'Login Successful',
-          data: {
-            access_token: accessToken,
-            ...result,
-          },
-        };
-      }
-    } catch (error) {
-      console.log(error);
-      throw error;
-    }
-  }
-
-  private async UpdateLoginAttempt(user: User, isAttemptSuccess: boolean) {
-    await this.prisma.loginAttempts.create({
-      data: {
-        reason: isAttemptSuccess
-          ? SigninResponseEnum.PASSWORD_MATCHES
-          : SigninResponseEnum.INVALID_PASSWORD,
+    const recentFailures = await this.prisma.loginAttempts.count({
+      where: {
         user_id: user.id,
-        attempt_success: isAttemptSuccess,
+        attempt_success: false,
+        createAt: { gte: windowStart },
       },
     });
 
-    if (isAttemptSuccess) {
-      await this.update(
-        {
-          id: user.id,
-        },
-        {
-          is_locked: false,
-          lock_until: null,
-        },
+    if (recentFailures >= maxAttempts) {
+      const lockUntil = new Date(Date.now() + windowMs);
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { is_locked: true, lock_until: lockUntil },
+      });
+
+      const secondsRemaining = this.secondsUntil(lockUntil);
+      throw new ForbiddenException(
+        `Account locked after ${maxAttempts} failed attempts. Try again in ${secondsRemaining} second(s).`,
       );
     }
+
+    throw new UnauthorizedException('Invalid credentials.');
   }
 
-  private desiredEmailReturn(email: string) {
-    return email.toLocaleLowerCase();
+  private async unlockAccount(userId: string): Promise<void> {
+    await this.update({ id: userId }, { is_locked: false, lock_until: null });
   }
 
-  private generateToken(user: any): Promise<string> {
-    const payload = { email: user.email, sub: user.id, role: user.role };
-    return this.jwtService.signAsync(payload);
+  private async recordLoginAttempt(
+    user: User,
+    success: boolean,
+  ): Promise<void> {
+    await this.prisma.loginAttempts.create({
+      data: {
+        user_id: user.id,
+        attempt_success: success,
+        reason: success
+          ? SigninResponseEnum.PASSWORD_MATCHES
+          : SigninResponseEnum.INVALID_PASSWORD,
+      },
+    });
+  }
+
+  private lockoutConfig(): { maxAttempts: number; windowMs: number } {
+    const maxAttempts = Number(
+      this.configService.get<number>('MAX_WRONG_ATTEMPTS'),
+    );
+    const windowSeconds = Number(
+      this.configService.get<number>('MAX_WRONG_ATTEMPTS_TIME_FRAME'),
+    );
+    return { maxAttempts, windowMs: windowSeconds * 1000 };
+  }
+
+  private secondsUntil(date: Date): number {
+    return Math.ceil((date.getTime() - Date.now()) / 1000);
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  private generateToken(user: User): Promise<string> {
+    return this.jwtService.signAsync({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
   }
 }
