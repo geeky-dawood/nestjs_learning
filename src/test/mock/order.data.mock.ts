@@ -270,6 +270,8 @@ export const MOCK_PAGINATION_META = (
   page_size: pageSize,
   total_pages: totalPages,
   total_records: totalRecords,
+  has_next_page: currentPage < totalPages,
+  has_previous_page: currentPage > 1,
 });
 
 // ─── Transaction Mock Factories ───────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
 
 export class PaginationDto {
   @IsOptional()
@@ -13,4 +13,11 @@ export class PaginationDto {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[\w\s-]+$/, {
+    message: 'Search can include letters, numbers, spaces, and hyphens',
+  })
+  search?: string;
 }

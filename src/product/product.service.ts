@@ -3,10 +3,15 @@ import { BaseService } from '../common/database/base.service';
 import { CreateProductDto } from '../dto/create_product.dto';
 import { Product } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationService } from '../pagination/pagination.service';
+import { GetAllProductsPaginationDto } from '../dto/all_product.dto';
 
 @Injectable()
 export class ProductService extends BaseService<Product> {
-  constructor(protected prisma: PrismaService) {
+  constructor(
+    protected prisma: PrismaService,
+    protected paginationService: PaginationService,
+  ) {
     super(prisma, prisma.product);
   }
 
@@ -21,20 +26,44 @@ export class ProductService extends BaseService<Product> {
     };
   }
 
-  async allProduct() {
-    const products = await this.prisma.product.findMany({
-      where: {
-        is_deleted: false,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+  async allProduct(query?: GetAllProductsPaginationDto) {
+    try {
+      const page = Number(query?.page);
+      const limit = Number(query?.limit);
 
-    return {
-      message: 'Success',
-      data: products,
-    };
+      const skip = (page - 1) * limit;
+
+      const where: any = {
+        is_deleted: false,
+      };
+
+      if (query?.search) {
+        where.title = {
+          contains: query.search,
+          mode: 'insensitive',
+        };
+      }
+
+      if (query?.filterByCategory) {
+        where.category = {
+          contains: query.filterByCategory,
+          mode: 'insensitive',
+        };
+      }
+
+      return await this.paginationService.paginate({
+        model: this.prisma.product,
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          title: 'asc',
+        },
+      });
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
   }
 
   async deleteAProduct(product_id: string) {
