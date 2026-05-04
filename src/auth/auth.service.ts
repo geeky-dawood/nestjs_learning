@@ -69,7 +69,6 @@ export class AuthService extends BaseService<User> {
       await this.handleFailedAttempt(user);
     }
 
-    // Unlock account on successful login
     await this.unlockAccount(user.id);
 
     const access_token = await this.generateToken(user);
