@@ -16,8 +16,8 @@ import { PaginationDto } from '../utils/pagination';
 import { JwtAuthGuard } from '../auth/guard/jwt.auth.guard';
 import { RolesGuard } from '../auth/guard/role.auth.guard';
 import { Roles } from '../auth/decorator/role.decorator';
-import { SearchDto } from '../dto/serach.dto';
 import { OrderStatusDto } from '../dto/order_status.dto';
+import { OrderFilterDto } from '../dto/filter.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('order')
@@ -35,7 +35,7 @@ export class OrderController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
   @Get('/all-orders')
-  async getAllOrders(@Query() query: SearchDto) {
+  async getAllOrders(@Query() query: OrderFilterDto) {
     return await this.orderService.getAllOrders(query);
   }
 

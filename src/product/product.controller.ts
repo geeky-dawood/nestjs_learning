@@ -5,11 +5,13 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guard/jwt.auth.guard';
 import { ProductService } from './product.service';
 import { CreateProductDto } from '../dto/create_product.dto';
+import { GetAllProductsPaginationDto } from '../dto/all_product.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('product')
@@ -22,8 +24,8 @@ export class ProductController {
   }
 
   @Get('/all-products')
-  async allProducts() {
-    return await this.productService.allProduct();
+  async allProducts(@Query() query: GetAllProductsPaginationDto) {
+    return await this.productService.allProduct(query);
   }
 
   @Delete('/delete/:product_id')
