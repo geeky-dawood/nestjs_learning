@@ -21,12 +21,14 @@ import {
 import { ProductService } from '../product/product.service';
 import { PaginationDto } from '../utils/pagination';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class OrderService extends BaseService<Order> {
   constructor(
     protected prisma: PrismaService,
     private readonly productService: ProductService,
+    private readonly mailService: MailService,
   ) {
     super(prisma, prisma.order);
   }
@@ -151,6 +153,12 @@ export class OrderService extends BaseService<Order> {
           action_performed_by: UserRole.USER,
           request_method: RequestMethod.POST,
         });
+
+        await this.mailService.sendOrderPlacedEmail(
+          user_id,
+          orderItems,
+          order.order_number,
+        );
 
         return {
           message: 'order Placed',
@@ -389,6 +397,8 @@ export class OrderService extends BaseService<Order> {
           0,
         ),
       });
+
+      await this.mailService.sendOrderStatusEmail(order.user_id, payload);
 
       return {
         message: this.meanfulMsgOnStatusChange(status),
