@@ -49,7 +49,7 @@ export class MailService {
         };
       });
 
-      return this.send({
+      return await this.send({
         to: user.email,
         subject: 'Order Confirmation',
         template: 'order-placed-email',
@@ -87,7 +87,7 @@ export class MailService {
         throw new Error(`Order not found for id: ${body.order_id}`);
       }
 
-      return this.send({
+      return await this.send({
         to: user.email,
         subject: `Order ${body.status}`,
         template: 'order-status-email',
