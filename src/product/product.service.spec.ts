@@ -2,18 +2,19 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductService } from './product.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationService } from '../pagination/pagination.service';
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import {
   MOCK_PRODUCT,
   DELETED_PRODUCT,
   MOCK_ORDER,
-  MOCK_CREATE_PAYLOAD,
-} from '../test/mock/product.data.mock'; // import mock data
+} from '../test/mock/product.data.mock';
 import { CreateProductDto } from '../dto/create_product.dto';
 
 describe('ProductService', () => {
   let service: ProductService;
   let prisma: any;
+  let paginationService: any;
 
   beforeEach(async () => {
     prisma = {
@@ -25,10 +26,22 @@ describe('ProductService', () => {
         delete: jest.fn(),
         count: jest.fn(),
       },
+      $transaction: jest.fn((queries: Promise<unknown>[]) =>
+        Promise.all(queries),
+      ),
+    };
+
+    paginationService = {
+      paginate: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ProductService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ProductService,
+        PaginationService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: PaginationService, useValue: paginationService },
+      ],
     }).compile();
 
     service = module.get<ProductService>(ProductService);
@@ -70,25 +83,111 @@ describe('ProductService', () => {
     });
   });
 
-  it('should return all non-deleted products', async () => {
+  it('should return all non-deleted products with pagination and search', async () => {
     const mockProducts = [
-      { id: 'p1', is_deleted: false },
-      { id: 'p2', is_deleted: false },
+      { id: 'p1', title: 'iPhone', is_deleted: false },
+      { id: 'p2', title: 'Samsung', is_deleted: false },
     ];
 
-    prisma.product.findMany.mockResolvedValue(mockProducts);
-
-    const result = await service.allProduct();
-
-    expect(prisma.product.findMany).toHaveBeenCalledWith({
-      where: { is_deleted: false },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    expect(result).toEqual({
-      message: 'Success',
+    const mockResult = {
       data: mockProducts,
+      meta: {
+        current_page_number: 1,
+        page_size: 10,
+        total_pages: 1,
+        total_records: 2,
+        has_next_page: false,
+        has_previous_page: false,
+      },
+    };
+
+    // mock paginate service instead of prisma directly
+    paginationService.paginate.mockResolvedValue(mockResult);
+
+    const query = {
+      page: 1,
+      limit: 10,
+      search: 'phone',
+    };
+
+    const result = await service.allProduct(query);
+
+    expect(paginationService.paginate).toHaveBeenCalledWith({
+      model: prisma.product,
+      where: {
+        is_deleted: false,
+        title: {
+          contains: 'phone',
+          mode: 'insensitive',
+        },
+      },
+      skip: 0,
+      take: 10,
+      orderBy: {
+        title: 'asc',
+      },
     });
+
+    expect(result).toEqual(mockResult);
+  });
+
+  it('should work without search', async () => {
+    const mockResult = {
+      data: [],
+      meta: {
+        current_page_number: 1,
+        page_size: 10,
+        total_pages: 0,
+        total_records: 0,
+        has_next_page: false,
+        has_previous_page: false,
+      },
+    };
+
+    paginationService.paginate.mockResolvedValue(mockResult);
+
+    await service.allProduct({ page: 1, limit: 10 });
+
+    expect(paginationService.paginate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          is_deleted: false,
+        },
+      }),
+    );
+  });
+
+  it('should filter by category', async () => {
+    const mockResult = {
+      data: [],
+      meta: {
+        current_page_number: 1,
+        page_size: 10,
+        total_pages: 0,
+        total_records: 0,
+        has_next_page: false,
+        has_previous_page: false,
+      },
+    };
+
+    paginationService.paginate.mockResolvedValue(mockResult);
+
+    await service.allProduct({
+      page: 1,
+      limit: 10,
+      filterByCategory: 'electronics',
+    });
+
+    expect(paginationService.paginate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          category: {
+            contains: 'electronics',
+            mode: 'insensitive',
+          },
+        }),
+      }),
+    );
   });
 
   it('should soft delete a product', async () => {

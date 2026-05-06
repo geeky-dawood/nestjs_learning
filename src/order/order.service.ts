@@ -7,7 +7,6 @@ import {
 import { BaseService } from '../common/database/base.service';
 import { OrderStatusDto } from '../dto/order_status.dto';
 import { PlaceOrderDto } from '../dto/place_order.dto';
-import { SearchDto } from '../dto/serach.dto';
 import {
   ActivityActionType,
   Order,
@@ -22,6 +21,8 @@ import { ProductService } from '../product/product.service';
 import { PaginationDto } from '../utils/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { OrderFilterDto } from '../dto/filter.dto';
+import { PaginationService } from '../pagination/pagination.service';
 
 @Injectable()
 export class OrderService extends BaseService<Order> {
@@ -29,6 +30,7 @@ export class OrderService extends BaseService<Order> {
     protected prisma: PrismaService,
     private readonly productService: ProductService,
     private readonly mailService: MailService,
+    private readonly paginationService: PaginationService,
   ) {
     super(prisma, prisma.order);
   }
@@ -171,7 +173,7 @@ export class OrderService extends BaseService<Order> {
     }
   }
 
-  async getAllOrders(query: SearchDto) {
+  async getAllOrders(query: OrderFilterDto) {
     try {
       const page = query?.page || 1;
       const size = query?.limit || 10;
@@ -427,44 +429,29 @@ export class OrderService extends BaseService<Order> {
   }) {
     const { where = {}, skip = 0, take = 10 } = options;
 
-    const [orders, total] = await this.prisma.$transaction([
-      this.prisma.order.findMany({
-        where,
-        skip: skip,
-        take: take,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          items: {
-            include: {
-              product: true,
-            },
+    return this.paginationService.paginate({
+      model: this.prisma.order,
+      where,
+      skip,
+      take,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
         },
-        orderBy: {
-          createdAt: 'desc',
+        items: {
+          include: {
+            product: true,
+          },
         },
-      }),
-      this.prisma.order.count({ where }),
-    ]);
-
-    const totalPages = Math.ceil(total / take);
-    const currentPage = Math.floor(skip / take) + 1;
-
-    return {
-      data: orders,
-      meta: {
-        current_page_number: currentPage,
-        page_size: take,
-        total_pages: totalPages,
-        total_records: total,
       },
-    };
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   private updateOrderStatus(orderId: string, newStatus: OrderStatusEnum) {

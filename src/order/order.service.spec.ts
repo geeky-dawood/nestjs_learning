@@ -10,6 +10,7 @@ import { OrderService } from './order.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductService } from '../product/product.service';
 import { MailService } from '../mail/mail.service';
+import { PaginationService } from '../pagination/pagination.service';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from '../auth/guard/role.auth.guard';
 import { OrderStatusEnum } from '../generated/prisma/enums';
@@ -113,6 +114,7 @@ describe('OrderService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrderService,
+        PaginationService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProductService, useValue: productService },
         { provide: MailService, useValue: mailService },
