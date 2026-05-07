@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailService } from './mail.service';
 import { MailController } from './mail.controller';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
+import { EmailRetryService } from '../schedule/email-retry.service';
 
 @Module({
   imports: [
@@ -41,7 +42,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.ad
       },
     }),
   ],
-  providers: [MailService],
+  providers: [MailService, EmailRetryService],
   controllers: [MailController],
   exports: [MailService],
 })

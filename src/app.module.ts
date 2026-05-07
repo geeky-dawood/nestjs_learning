@@ -8,10 +8,13 @@ import { ProductModule } from './product/product.module';
 import { OrderModule } from './order/order.module';
 import { MailModule } from './mail/mail.module';
 import { PaginationModule } from './pagination/pagination.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { EmailRetryService } from './schedule/email-retry.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UserModule,
@@ -21,5 +24,6 @@ import { PaginationModule } from './pagination/pagination.module';
     MailModule,
     PaginationModule,
   ],
+  providers: [EmailRetryService],
 })
 export class AppModule {}
