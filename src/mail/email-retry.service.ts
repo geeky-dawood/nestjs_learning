@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailAttemptStatus, EmailType } from '../generated/prisma/enums';
 import { MailService } from '../mail/mail.service';
@@ -13,7 +12,6 @@ export class EmailRetryService {
     private readonly mailService: MailService,
   ) {}
 
-  @Cron(CronExpression.EVERY_MINUTE)
   async retryFailedEmails() {
     this.logger.log('Checking failed emails...');
 
