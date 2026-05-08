@@ -1,6 +1,7 @@
 import { MailService } from './mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '@nestjs-modules/mailer';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import {
@@ -38,18 +39,24 @@ describe('MailService', () => {
     sendMail: jest.fn<any>(),
   };
 
+  const mockConfig = {
+    get: jest.fn<any>(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MailService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: MailerService, useValue: mockMailer },
+        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
 
     service = module.get<MailService>(MailService);
 
     jest.clearAllMocks();
+    mockConfig.get.mockReturnValue('no-reply@example.com');
   });
 
   it('should be defined', () => {
@@ -126,44 +133,56 @@ describe('MailService', () => {
       );
     });
 
-    it('should return undefined (not throw) when user is not found', async () => {
+    it('should throw when user is not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.sendOrderPlacedEmail(
-        '1',
-        ORDER_PLACED_ITEMS,
-        'ORD-001',
-      );
+      await expect(
+        service.sendOrderPlacedEmail('1', ORDER_PLACED_ITEMS, 'ORD-001'),
+      ).rejects.toThrow('User not found for id: 1');
 
-      expect(result).toBeUndefined();
       expect(mockMailer.sendMail).not.toHaveBeenCalled();
     });
 
-    it('should return undefined (not throw) when mailerService.sendMail fails', async () => {
+    it('should throw when mailerService.sendMail fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(MOCK_MAIL_USER);
       mockPrisma.product.findMany.mockResolvedValue(MOCK_MAIL_PRODUCTS);
       mockMailer.sendMail.mockRejectedValue(SMTP_ERROR);
 
-      const result = await service.sendOrderPlacedEmail(
-        '1',
-        ORDER_PLACED_ITEMS,
-        'ORD-001',
-      );
-
-      expect(result).toBeUndefined();
+      await expect(
+        service.sendOrderPlacedEmail('1', ORDER_PLACED_ITEMS, 'ORD-001'),
+      ).rejects.toThrow(SMTP_ERROR);
     });
 
-    it('should return undefined when product.findMany rejects', async () => {
+    it('should throw when SMTP rejects a recipient immediately', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(MOCK_MAIL_USER);
+      mockPrisma.product.findMany.mockResolvedValue(MOCK_MAIL_PRODUCTS);
+      mockMailer.sendMail.mockResolvedValue({
+        accepted: [],
+        rejected: [MOCK_MAIL_USER.email],
+        response: '550 5.1.1 Address not found',
+      });
+
+      await expect(
+        service.sendOrderPlacedEmail(
+          '1',
+          ORDER_PLACED_ITEMS,
+          'ORD-001',
+        ),
+      ).rejects.toThrow(`SMTP rejected recipient(s): ${MOCK_MAIL_USER.email}`);
+    });
+
+    it('should throw when product.findMany rejects', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(MOCK_MAIL_USER);
       mockPrisma.product.findMany.mockRejectedValue(DB_ERROR);
 
-      const result = await service.sendOrderPlacedEmail(
-        '1',
-        ORDER_PLACED_ITEMS,
-        'ORD-001',
-      );
+      await expect(
+        service.sendOrderPlacedEmail(
+          '1',
+          ORDER_PLACED_ITEMS,
+          'ORD-001',
+        ),
+      ).rejects.toThrow(DB_ERROR);
 
-      expect(result).toBeUndefined();
       expect(mockMailer.sendMail).not.toHaveBeenCalled();
     });
 
@@ -230,42 +249,45 @@ describe('MailService', () => {
       );
     });
 
-    it('should return undefined (not throw) when user is not found', async () => {
+    it('should throw when user is not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.sendOrderStatusEmail('1', ORDER_STATUS_BODY);
+      await expect(
+        service.sendOrderStatusEmail('1', ORDER_STATUS_BODY),
+      ).rejects.toThrow('User not found for id: 1');
 
-      expect(result).toBeUndefined();
       expect(mockPrisma.order.findUnique).not.toHaveBeenCalled();
       expect(mockMailer.sendMail).not.toHaveBeenCalled();
     });
 
-    it('should return undefined (not throw) when order is not found', async () => {
+    it('should throw when order is not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(MOCK_MAIL_USER);
       mockPrisma.order.findUnique.mockResolvedValue(null);
 
-      const result = await service.sendOrderStatusEmail('1', ORDER_STATUS_BODY);
+      await expect(
+        service.sendOrderStatusEmail('1', ORDER_STATUS_BODY),
+      ).rejects.toThrow('Order not found for id: o1');
 
-      expect(result).toBeUndefined();
       expect(mockMailer.sendMail).not.toHaveBeenCalled();
     });
 
-    it('should return undefined when mailerService.sendMail fails', async () => {
+    it('should throw when mailerService.sendMail fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(MOCK_MAIL_USER);
       mockPrisma.order.findUnique.mockResolvedValue(MOCK_MAIL_ORDER);
       mockMailer.sendMail.mockRejectedValue(SMTP_TIMEOUT_ERROR);
 
-      const result = await service.sendOrderStatusEmail('1', ORDER_STATUS_BODY);
-
-      expect(result).toBeUndefined();
+      await expect(
+        service.sendOrderStatusEmail('1', ORDER_STATUS_BODY),
+      ).rejects.toThrow(SMTP_TIMEOUT_ERROR);
     });
 
-    it('should return undefined when user.findUnique rejects', async () => {
+    it('should throw when user.findUnique rejects', async () => {
       mockPrisma.user.findUnique.mockRejectedValue(DB_CONNECTION_LOST_ERROR);
 
-      const result = await service.sendOrderStatusEmail('1', ORDER_STATUS_BODY);
+      await expect(
+        service.sendOrderStatusEmail('1', ORDER_STATUS_BODY),
+      ).rejects.toThrow(DB_CONNECTION_LOST_ERROR);
 
-      expect(result).toBeUndefined();
       expect(mockMailer.sendMail).not.toHaveBeenCalled();
     });
   });

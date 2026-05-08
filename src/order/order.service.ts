@@ -157,11 +157,18 @@ export class OrderService extends BaseService<Order> {
         return order;
       });
 
-      await this.mailService.sendOrderPlacedEmail(
-        user_id,
-        orderItems,
-        order.order_number,
-      );
+      try {
+        await this.mailService.sendOrderPlacedEmail(
+          user_id,
+          orderItems,
+          order.order_number,
+        );
+      } catch (mailError) {
+        console.error(
+          `Failed to send order placed email for order ${order.order_number}:`,
+          mailError,
+        );
+      }
 
       return {
         message: 'Order Placed',
@@ -381,7 +388,7 @@ export class OrderService extends BaseService<Order> {
 
       const orderItems = await this.prisma.orderItem.findMany({
         where: {
-          order_id: order_id,
+          order_id,
         },
       });
 
@@ -401,13 +408,24 @@ export class OrderService extends BaseService<Order> {
         ),
       });
 
-      await this.mailService.sendOrderStatusEmail(order.user_id, payload);
+      try {
+        await this.mailService.sendOrderStatusEmail(order.user_id, payload);
+      } catch (mailError) {
+        console.error(
+          `Failed to send order status email for order ${order_id}:`,
+          mailError,
+        );
+      }
 
       return {
         message: this.meanfulMsgOnStatusChange(status),
       };
     } catch (error) {
-      console.log(error);
+      console.error(
+        `Failed to change order status for order ${order_id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+
       throw error;
     }
   }

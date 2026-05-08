@@ -5,6 +5,14 @@ import { OrderProductDto } from '../dto/place_order.dto';
 import { OrderStatusDto } from '../dto/order_status.dto';
 import { ConfigService } from '@nestjs/config';
 
+type MailerSendResponse = {
+  accepted?: string[];
+  rejected?: string[];
+  pending?: string[];
+  response?: string;
+  messageId?: string;
+};
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -118,15 +126,31 @@ export class MailService {
     context: any;
   }) {
     try {
-      const response = await this.mailerService.sendMail({
+      const response = (await this.mailerService.sendMail({
         to: params.to,
         from: this.configService.get<string>('FROM'),
         subject: params.subject,
         template: params.template,
         context: params.context,
-      });
+      })) as MailerSendResponse;
 
-      this.logger.log(`Email sent to ${params.to}`);
+      if (response?.rejected?.length) {
+        throw new Error(
+          `SMTP rejected recipient(s): ${response.rejected.join(', ')}`,
+        );
+      }
+
+      if (response?.pending?.length) {
+        this.logger.warn(
+          `Email pending for ${response.pending.join(', ')}. SMTP response: ${
+            response.response ?? 'No response provided'
+          }`,
+        );
+      }
+
+      this.logger.log(
+        `Email accepted by SMTP server for delivery to ${params.to}`,
+      );
       return response;
     } catch (error) {
       this.logger.error(`Email failed for ${params.to}`, error);
