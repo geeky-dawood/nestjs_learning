@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Update</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border: 1px solid #ddd;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .order-meta {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f4f6f8;
+      border-left: 4px solid #007bff;
+      font-size: 14px;
+    }
+
+    .order-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    .order-table th,
+    .order-table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .order-table th {
+      background-color: #f2f2f2;
+    }
+
+    .status {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    a {
+      color: #007bff;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h1>Order Update</h1>
+    </div>
+
+    <p>Hello {{name}},</p>
+
+    <p>Thank you for your order. Here are your order details:</p>
+
+    <!-- ✅ Order Number Added -->
+    <div class="order-meta">
+      <strong>Order Number:</strong> {{orderNumber}}
+    </div>
+
+    <table class="order-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Quantity</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {{#each products}}
+        <tr>
+          <td>{{this.name}}</td>
+          <td>{{this.quantity}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <p class="status">
+      Order Status: {{status}}
+    </p>
+
+    {{#if trackingLink}}
+    <p>
+      You can track your order here:
+      <a href="{{trackingLink}}" target="_blank">Track Order</a>
+    </p>
+    {{/if}}
+
+    <p>If you have any questions, feel free to contact us.</p>
+
+  </div>
+</body>
+
+</html>

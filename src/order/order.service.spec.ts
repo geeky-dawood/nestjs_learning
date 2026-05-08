@@ -9,6 +9,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrderService } from './order.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductService } from '../product/product.service';
+import { MailService } from '../mail/mail.service';
 import { PaginationService } from '../pagination/pagination.service';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from '../auth/guard/role.auth.guard';
@@ -70,6 +71,7 @@ describe('OrderService', () => {
   let service: OrderService;
   let prisma: any;
   let productService: any;
+  let mailService: any;
 
   // ─── Setup ──────────────────────────────────────────────────────────────────
 
@@ -104,6 +106,10 @@ describe('OrderService', () => {
     });
 
     productService = { findMany: jest.fn() };
+    mailService = {
+      sendOrderPlacedEmail: jest.fn(),
+      sendOrderStatusEmail: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -111,6 +117,7 @@ describe('OrderService', () => {
         PaginationService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProductService, useValue: productService },
+        { provide: MailService, useValue: mailService },
       ],
     }).compile();
 
@@ -946,6 +953,20 @@ describe('OrderService', () => {
       expect(() => guard.canActivate(mockContext('USER'))).toThrow(
         ForbiddenException,
       );
+    });
+
+    it('throws ForbiddenException when no authenticated user is present', () => {
+      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ADMIN']);
+
+      const context = {
+        switchToHttp: () => ({
+          getRequest: () => ({}),
+        }),
+        getHandler: () => {},
+        getClass: () => {},
+      } as unknown as ExecutionContext;
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
     });
 
     it('allows access when no roles are required (public endpoint)', () => {

@@ -6,6 +6,7 @@ import { UserModule } from './user/user.module';
 import { AddressModule } from './address/address.module';
 import { ProductModule } from './product/product.module';
 import { OrderModule } from './order/order.module';
+import { MailModule } from './mail/mail.module';
 import { PaginationModule } from './pagination/pagination.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { PaginationModule } from './pagination/pagination.module';
     AddressModule,
     ProductModule,
     OrderModule,
+    MailModule,
     PaginationModule,
   ],
 })
