@@ -40,7 +40,7 @@ export class ProductController {
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
   @Patch('/update-stock')
-  async updateStock(@Body('') body: UpdateStockDto) {
+  async updateStock(@Body() body: UpdateStockDto) {
     return await this.productService.updateStock(body.productId, body.stock);
   }
 }
