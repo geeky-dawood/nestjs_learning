@@ -1,31 +1,33 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { OrderStatusDto } from '../dto/order_status.dto';
-import { OrderProductDto, PlaceOrderDto } from '../dto/place_order.dto';
 import { GetUser } from '../auth/decorator/user.decorator';
+import { SendMailOnPlaceOrderDto } from '../dto/send_mail_place_order.dto';
 
 @Controller('mail')
 export class MailController {
   constructor(private readonly mailService: MailService) {}
 
-  // @Post('order-placed')
+  @Post('order-placed')
   async orderPlaced(
-    userId: string,
-    @Body() body: PlaceOrderDto,
-    @Body('orderNumber') orderNumber: string,
+    @GetUser('id') user_id: string,
+    @Body() body: SendMailOnPlaceOrderDto,
   ) {
     await this.mailService.sendOrderPlacedEmail(
-      userId,
+      user_id,
       body.items,
-      orderNumber,
+      body.order_number,
     );
 
     return { message: 'Order email sent' };
   }
 
   @Post('order-status')
-  async orderStatusUpdated(userId: string, @Body() body: OrderStatusDto) {
-    await this.mailService.sendOrderStatusEmail(userId, body);
+  async orderStatusUpdated(
+    @GetUser('id') user_id: string,
+    @Body() body: OrderStatusDto,
+  ) {
+    await this.mailService.sendOrderStatusEmail(user_id, body);
 
     return { message: 'Status email sent' };
   }

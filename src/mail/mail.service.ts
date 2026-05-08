@@ -3,6 +3,7 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderProductDto } from '../dto/place_order.dto';
 import { OrderStatusDto } from '../dto/order_status.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MailService {
@@ -11,23 +12,23 @@ export class MailService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly mailerService: MailerService,
+    private readonly configService: ConfigService,
   ) {}
 
   async sendOrderPlacedEmail(
-    userId: string,
+    user_id: string,
     items: OrderProductDto[],
-    orderNumber: string,
+    order_number: string,
   ) {
     try {
       const user = await this.prismaService.user.findUnique({
-        where: {
-          id: userId,
-        },
+        where: { id: user_id },
       });
 
       if (!user) {
-        throw new Error(`User not found for id: ${userId}`);
+        throw new Error(`User not found for id: ${user_id}`);
       }
+
       const productIds = items.map((i) => i.product_id);
 
       const products = await this.prismaService.product.findMany({
@@ -57,24 +58,27 @@ export class MailService {
           name: user.name,
           products: enrichedProducts,
           status: 'Placed',
-          orderNumber: orderNumber,
+          orderNumber: order_number,
         },
       });
     } catch (error) {
-      console.log(error);
+      this.logger.error(
+        `Failed to send order placed email for user: ${user_id}, order: ${order_number}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+
+      throw error;
     }
   }
 
-  async sendOrderStatusEmail(userId: string, body: OrderStatusDto) {
+  async sendOrderStatusEmail(user_id: string, body: OrderStatusDto) {
     try {
       const user = await this.prismaService.user.findUnique({
-        where: {
-          id: userId,
-        },
+        where: { id: user_id },
       });
 
       if (!user) {
-        throw new Error(`User not found for id: ${userId}`);
+        throw new Error(`User not found for id: ${user_id}`);
       }
 
       const order = await this.prismaService.order.findUnique({
@@ -98,7 +102,12 @@ export class MailService {
         },
       });
     } catch (error) {
-      console.log(error);
+      this.logger.error(
+        `Failed to send order status email for user: ${user_id}, order: ${body.order_id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+
+      throw error;
     }
   }
 
@@ -111,7 +120,7 @@ export class MailService {
     try {
       const response = await this.mailerService.sendMail({
         to: params.to,
-        from: process.env.FROM,
+        from: this.configService.get<string>('FROM'),
         subject: params.subject,
         template: params.template,
         context: params.context,
