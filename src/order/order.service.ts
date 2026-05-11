@@ -63,7 +63,7 @@ export class OrderService extends BaseService<Order> {
 
       if (uniqueProductIds.length !== productIds.length) {
         throw new BadRequestException(
-          'Duplicate product found in order items. Each product must appear only once.',
+          'Duplicate product found in order items.',
         );
       }
 
@@ -75,9 +75,7 @@ export class OrderService extends BaseService<Order> {
       });
 
       if (products.length !== uniqueProductIds.length) {
-        throw new BadRequestException(
-          'One or more products not found. Please verify product IDs.',
-        );
+        throw new BadRequestException('One or more products not found.');
       }
 
       const productMap = new Map(
@@ -104,14 +102,16 @@ export class OrderService extends BaseService<Order> {
         totalAmount += product.price * orderItem.quantity;
       }
 
-      return this.prisma.$transaction(async (tx) => {
+      const order = await this.prisma.$transaction(async (tx) => {
         for (const item of orderItems) {
           const decrementResult = await tx.product.updateMany({
             where: {
               id: item.product_id,
               quantity: { gte: item.quantity },
             },
-            data: { quantity: { decrement: item.quantity } },
+            data: {
+              quantity: { decrement: item.quantity },
+            },
           });
 
           if (decrementResult.count !== 1) {
@@ -125,25 +125,23 @@ export class OrderService extends BaseService<Order> {
           data: {
             order_number: this.generateOrderNumber(),
             total_price: totalAmount,
-            user_id: user_id,
+            user_id,
           },
         });
 
-        const orderItemsData = orderItems.map((item) => {
-          return {
-            order_id: order.id,
-            product_id: item.product_id,
-            quantity: item.quantity,
-            price: productMap.get(item.product_id)?.price || 0,
-          };
-        });
+        const orderItemsData = orderItems.map((item) => ({
+          order_id: order.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: productMap.get(item.product_id)?.price || 0,
+        }));
 
         await tx.orderItem.createMany({
           data: orderItemsData,
         });
 
         await this.trackOrderActivity({
-          user_id: user_id,
+          user_id,
           order_id: order.id,
           action_type: ActivityActionType.ORDER_CREATED,
           description: `Order ${order.order_number} has been created.`,
@@ -158,31 +156,29 @@ export class OrderService extends BaseService<Order> {
           request_method: RequestMethod.POST,
         });
 
-        const email = await this.mailService.sendOrderPlacedEmail(
+        return order;
+      });
+
+      try {
+        await this.mailService.sendOrderPlacedEmail(
           user_id,
           orderItems,
           order.order_number,
         );
+      } catch (mailError) {
+        console.error(
+          `Failed to send order placed email for order ${order.order_number}:`,
+          mailError,
+        );
+      }
 
-        await this.prisma.emailActivityLogs.create({
-          data: {
-            user_id: user_id,
-            order_id: order.id,
-            email_type: EmailType.ORDER_PLACED,
-            attempt_status: email?.success
-              ? EmailAttemptStatus.SUCCESS
-              : EmailAttemptStatus.FAILED,
-            reason: null,
-          },
-        });
-
-        return {
-          message: 'order Placed',
-          data: order,
-        };
-      });
+      return {
+        message: 'Order Placed',
+        data: order,
+      };
     } catch (error) {
       console.error('Error creating order:', error);
+
       throw error;
     }
   }
@@ -394,7 +390,7 @@ export class OrderService extends BaseService<Order> {
 
       const orderItems = await this.prisma.orderItem.findMany({
         where: {
-          order_id: order_id,
+          order_id,
         },
       });
 
@@ -414,28 +410,24 @@ export class OrderService extends BaseService<Order> {
         ),
       });
 
-      const email = await this.mailService.sendOrderStatusEmail(
-        order.user_id,
-        payload,
-      );
-
-      await this.prisma.emailActivityLogs.create({
-        data: {
-          user_id: order.user_id,
-          order_id: order.id,
-          email_type: EmailType.ORDER_STATUS_UPDATED,
-          attempt_status: email?.success
-            ? EmailAttemptStatus.SUCCESS
-            : EmailAttemptStatus.FAILED,
-          reason: email?.success ? null : email?.reason ?? null,
-        },
-      });
+      try {
+        await this.mailService.sendOrderStatusEmail(order.user_id, payload);
+      } catch (mailError) {
+        console.error(
+          `Failed to send order status email for order ${order_id}:`,
+          mailError,
+        );
+      }
 
       return {
         message: this.meanfulMsgOnStatusChange(status),
       };
     } catch (error) {
-      console.log(error);
+      console.error(
+        `Failed to change order status for order ${order_id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+
       throw error;
     }
   }

@@ -13,6 +13,8 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.ad
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const port = Number(configService.get<string>('SMTP_PORT_TLS'));
+        const allowInvalidTls =
+          configService.get<string>('SMTP_ALLOW_INVALID_TLS') === 'true';
 
         return {
           transport: {
@@ -24,7 +26,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.ad
               pass: configService.get<string>('SMTP_PASSWORD'),
             },
             tls: {
-              rejectUnauthorized: false,
+              rejectUnauthorized: !allowInvalidTls,
             },
           },
           defaults: {
