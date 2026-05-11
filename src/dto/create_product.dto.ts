@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsString,
   Matches,
-  Min,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -29,4 +28,8 @@ export class CreateProductDto {
   @IsNumber()
   @IsNotEmpty({ message: 'quantity is required' })
   quantity: number;
+
+  @IsOptional()
+  @IsString({ each: true })
+  images?: Array<string>;
 }

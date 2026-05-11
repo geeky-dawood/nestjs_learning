@@ -21,14 +21,20 @@ export class ProductService extends BaseService<Product> {
   }
 
   async createProduct(payload: CreateProductDto) {
-    const product = await this.create(payload);
+    try {
+      const product = await this.create(payload);
 
-    return {
-      message: 'Created',
-      data: {
-        ...product,
-      },
-    };
+      return {
+        message: 'Created',
+        data: {
+          ...product,
+        },
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Something went wrong while creating product',
+      );
+    }
   }
 
   async allProduct(query?: GetAllProductsPaginationDto) {
