@@ -202,5 +202,6 @@ model EmailActivityLogs {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([attempt_status, retry_count, createdAt])
   @@map("email_activity_logs")
 }
