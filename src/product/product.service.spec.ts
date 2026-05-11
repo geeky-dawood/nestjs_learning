@@ -1,4 +1,7 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductService } from './product.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,6 +12,11 @@ import {
   DELETED_PRODUCT,
   MOCK_ORDER,
 } from '../test/mock/product.data.mock';
+import {
+  MOCK_UPDATED_STOCK_PRODUCT,
+  MOCK_UPDATE_STOCK_DELETED_PRODUCT,
+  MOCK_UPDATE_STOCK_PRODUCT,
+} from '../test/mock/product-stock.data.mock';
 import { CreateProductDto } from '../dto/create_product.dto';
 
 describe('ProductService', () => {
@@ -237,5 +245,73 @@ describe('ProductService', () => {
     jest.spyOn(service, 'findOne').mockRejectedValue(new Error('DB error'));
 
     await expect(service.deleteAProduct('p1')).rejects.toThrow('DB error');
+  });
+
+  describe('updateStock', () => {
+    it('should update product stock', async () => {
+      prisma.product.findUnique.mockResolvedValue(MOCK_UPDATE_STOCK_PRODUCT);
+      prisma.product.update.mockResolvedValue(MOCK_UPDATED_STOCK_PRODUCT);
+
+      const result = await service.updateStock('product-1', 25);
+
+      expect(prisma.product.findUnique).toHaveBeenCalledWith({
+        where: { id: 'product-1' },
+      });
+      expect(prisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'product-1' },
+        data: { quantity: 25 },
+        select: {
+          id: true,
+          quantity: true,
+        },
+      });
+      expect(result).toEqual({
+        message: 'Stock updated successfully',
+        data: MOCK_UPDATED_STOCK_PRODUCT,
+      });
+    });
+
+    it('should throw internal server error when stock is less than 0', async () => {
+      await expect(service.updateStock('product-1', -1)).rejects.toThrow(
+        new InternalServerErrorException(
+          'Something went wrong while updating stock',
+        ),
+      );
+
+      expect(prisma.product.findUnique).not.toHaveBeenCalled();
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw internal server error when product does not exist', async () => {
+      prisma.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.updateStock('missing-product', 10)).rejects.toThrow(
+        new InternalServerErrorException(
+          'Something went wrong while updating stock',
+        ),
+      );
+
+      expect(prisma.product.findUnique).toHaveBeenCalledWith({
+        where: { id: 'missing-product' },
+      });
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw internal server error when product is deleted', async () => {
+      prisma.product.findUnique.mockResolvedValue(
+        MOCK_UPDATE_STOCK_DELETED_PRODUCT,
+      );
+
+      await expect(service.updateStock('product-1', 10)).rejects.toThrow(
+        new InternalServerErrorException(
+          'Something went wrong while updating stock',
+        ),
+      );
+
+      expect(prisma.product.findUnique).toHaveBeenCalledWith({
+        where: { id: 'product-1' },
+      });
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
   });
 });

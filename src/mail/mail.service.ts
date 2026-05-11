@@ -58,7 +58,7 @@ export class MailService {
         };
       });
 
-      return await this.send({
+      await this.send({
         to: user.email,
         subject: 'Order Confirmation',
         template: 'order-placed-email',
@@ -69,6 +69,11 @@ export class MailService {
           orderNumber: order_number,
         },
       });
+
+      return {
+        success: true,
+        reason: null,
+      };
     } catch (error) {
       this.logger.error(
         `Failed to send order placed email for user: ${user_id}, order: ${order_number}`,
@@ -99,7 +104,7 @@ export class MailService {
         throw new Error(`Order not found for id: ${body.order_id}`);
       }
 
-      return await this.send({
+      await this.send({
         to: user.email,
         subject: `Order ${body.status}`,
         template: 'order-status-email',
@@ -109,6 +114,11 @@ export class MailService {
           orderNumber: order.order_number,
         },
       });
+
+      return {
+        success: true,
+        reason: null,
+      };
     } catch (error) {
       this.logger.error(
         `Failed to send order status email for user: ${user_id}, order: ${body.order_id}`,

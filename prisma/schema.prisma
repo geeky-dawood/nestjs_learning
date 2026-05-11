@@ -40,6 +40,16 @@ enum RequestMethod {
   PATCH
 }
 
+enum EmailType {
+  ORDER_PLACED
+  ORDER_STATUS_UPDATED
+}
+
+enum EmailAttemptStatus {
+  SUCCESS
+  FAILED
+}
+
 model User {
   id              String   @id @default(uuid())
   name            String
@@ -176,4 +186,22 @@ model Address {
   updatedAt DateTime @updatedAt
 
   @@map("address")
+}
+
+model EmailActivityLogs {
+  id String @id @default(uuid())
+
+  user_id  String
+  order_id String?
+
+  email_type     EmailType
+  attempt_status EmailAttemptStatus
+  reason         String?
+  retry_count    Int                @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([attempt_status, retry_count, createdAt])
+  @@map("email_activity_logs")
 }

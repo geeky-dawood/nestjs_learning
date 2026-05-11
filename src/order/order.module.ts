@@ -6,9 +6,6 @@ import { MailModule } from '../mail/mail.module';
 import { PaginationModule } from '../pagination/pagination.module';
 import { PrismaModule } from '../prisma/prisma.module';
 
-
-
-
 @Module({
   imports: [ProductModule, PrismaModule, PaginationModule, MailModule],
   providers: [OrderService],

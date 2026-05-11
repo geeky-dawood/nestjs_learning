@@ -9,6 +9,8 @@ import { OrderStatusDto } from '../dto/order_status.dto';
 import { PlaceOrderDto } from '../dto/place_order.dto';
 import {
   ActivityActionType,
+  EmailAttemptStatus,
+  EmailType,
   Order,
   OrderStatusEnum,
   Prisma,
@@ -158,11 +160,23 @@ export class OrderService extends BaseService<Order> {
       });
 
       try {
-        await this.mailService.sendOrderPlacedEmail(
+        const email = await this.mailService.sendOrderPlacedEmail(
           user_id,
           orderItems,
           order.order_number,
         );
+
+        await this.prisma.emailActivityLogs.create({
+          data: {
+            user_id: user_id,
+            order_id: order.id,
+            email_type: EmailType.ORDER_PLACED,
+            attempt_status: email?.success
+              ? EmailAttemptStatus.SUCCESS
+              : EmailAttemptStatus.FAILED,
+            reason: null,
+          },
+        });
       } catch (mailError) {
         console.error(
           `Failed to send order placed email for order ${order.order_number}:`,
@@ -409,7 +423,22 @@ export class OrderService extends BaseService<Order> {
       });
 
       try {
-        await this.mailService.sendOrderStatusEmail(order.user_id, payload);
+        const email = await this.mailService.sendOrderStatusEmail(
+          order.user_id,
+          payload,
+        );
+
+        await this.prisma.emailActivityLogs.create({
+          data: {
+            user_id: order.user_id,
+            order_id: order.id,
+            email_type: EmailType.ORDER_PLACED,
+            attempt_status: email?.success
+              ? EmailAttemptStatus.SUCCESS
+              : EmailAttemptStatus.FAILED,
+            reason: null,
+          },
+        });
       } catch (mailError) {
         console.error(
           `Failed to send order status email for order ${order_id}:`,
