@@ -21,6 +21,18 @@ export class ImageUploadService {
         throw new BadRequestException('Image file is required.');
       }
 
+      if (!productId) {
+        throw new BadRequestException('Product ID is required.');
+      }
+
+      const product = await this.prisma.product.findUnique({
+        where: { id: productId },
+      });
+
+      if (!product) {
+        throw new BadRequestException('Product not found.');
+      }
+
       const maxFileSize =
         Number(this.configService.get<string>('MAX_FILE_SIZE')) ||
         10 * 1024 * 1024;
@@ -49,9 +61,7 @@ export class ImageUploadService {
       const fileExtension =
         nameParts.length > 1 ? nameParts.pop()?.toLowerCase() : 'png';
 
-      const sanitizedName = nameParts
-        .join('.')
-        .replace(/[^a-zA-Z0-9]/g, '-');
+      const sanitizedName = nameParts.join('.').replace(/[^a-zA-Z0-9]/g, '-');
 
       const fileName = `products/${Date.now()}-${sanitizedName}.${fileExtension}`;
 
