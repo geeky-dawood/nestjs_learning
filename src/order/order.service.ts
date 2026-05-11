@@ -427,7 +427,7 @@ export class OrderService extends BaseService<Order> {
           attempt_status: email?.success
             ? EmailAttemptStatus.SUCCESS
             : EmailAttemptStatus.FAILED,
-          reason: '',
+          reason: email?.success ? null : email?.reason ?? null,
         },
       });
 
