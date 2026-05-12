@@ -1,0 +1,24 @@
+{
+  "orderPlaced": {
+    "subject": "Confirmation de Commande",
+    "title": "Mise à Jour de la Commande",
+    "greeting": "Bonjour",
+    "thankYou": "Merci pour votre commande. Voici les détails de votre commande :",
+    "product": "Produit",
+    "quantity": "Quantité",
+    "orderNumber": "Numéro de Commande",
+    "status": "Statut de la Commande",
+    "support": "Si vous avez des questions, n'hésitez pas à nous contacter."
+  },
+
+  "orderStatus": {
+    "subject": "Order Status Updated",
+    "title": "Order Status Update",
+    "greeting": "Hello",
+    "statusUpdatedMessage": "Your order status has been updated.",
+    "statusLabel": "Status",
+    "orderNumberLabel": "Order Number",
+    "supportMessage": "If you have any questions, feel free to contact us.",
+    "footerText": "Thank you for shopping with us."
+  }
+}

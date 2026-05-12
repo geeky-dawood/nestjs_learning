@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OrderProductDto } from '../dto/place_order.dto';
 import { OrderStatusDto } from '../dto/order_status.dto';
 import { ConfigService } from '@nestjs/config';
+import i18next from 'i18next';
 
 type MailerSendResponse = {
   accepted?: string[];
@@ -37,6 +38,10 @@ export class MailService {
         throw new Error(`User not found for id: ${user_id}`);
       }
 
+      const lang = user.preferred_language.toLowerCase();
+
+      const t = i18next.getFixedT(lang);
+
       const productIds = items.map((i) => i.product_id);
 
       const products = await this.prismaService.product.findMany({
@@ -60,13 +65,37 @@ export class MailService {
 
       await this.send({
         to: user.email,
-        subject: 'Order Confirmation',
+
+        subject: t('orderPlaced.subject'),
+
         template: 'order-placed-email',
+
         context: {
+          lang,
+
           name: user.name,
+
           products: enrichedProducts,
+
           status: 'Placed',
+
           orderNumber: order_number,
+
+          title: t('orderPlaced.title'),
+
+          greeting: t('orderPlaced.greeting'),
+
+          thankYouMessage: t('orderPlaced.thankYou'),
+
+          productLabel: t('orderPlaced.product'),
+
+          quantityLabel: t('orderPlaced.quantity'),
+
+          orderNumberLabel: t('orderPlaced.orderNumber'),
+
+          orderStatusLabel: t('orderPlaced.status'),
+
+          supportMessage: t('orderPlaced.support'),
         },
       });
 
@@ -104,14 +133,44 @@ export class MailService {
         throw new Error(`Order not found for id: ${body.order_id}`);
       }
 
+      const lang = user.preferred_language.toLowerCase();
+
+      const t = i18next.getFixedT(lang);
+
+      this.logger.debug(`i18next initialized: ${i18next.isInitialized}`);
+      this.logger.debug(`Resolved lang: ${lang}`);
+      this.logger.debug(`Test translation: ${t('orderStatus.title')}`);
+
       await this.send({
         to: user.email,
-        subject: `Order ${body.status}`,
+
+        subject: t('orderStatus.subject'),
+
         template: 'order-status-email',
+
         context: {
+          lang,
+
           name: user.name,
           status: body.status,
           orderNumber: order.order_number,
+
+          message: null,
+
+          // Translations
+          title: t('orderStatus.title'),
+
+          greeting: t('orderStatus.greeting'),
+
+          statusUpdatedMessage: t('orderStatus.statusUpdatedMessage'),
+
+          orderNumberLabel: t('orderStatus.orderNumberLabel'),
+
+          statusLabel: t('orderStatus.statusLabel'),
+
+          supportMessage: t('orderStatus.supportMessage'),
+
+          footerText: t('orderStatus.footerText'),
         },
       });
 

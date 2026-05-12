@@ -1,0 +1,24 @@
+{
+  "orderPlaced": {
+    "subject": "Confirmación de Pedido",
+    "title": "Actualización del Pedido",
+    "greeting": "Hola",
+    "thankYou": "Gracias por su pedido.",
+    "product": "Producto",
+    "quantity": "Cantidad",
+    "orderNumber": "Número de Pedido",
+    "status": "Estado del Pedido",
+    "support": "Si tiene preguntas, contáctenos."
+  },
+
+  "orderStatus": {
+    "subject": "Estado de la Orden Actualizado",
+    "title": "Actualización del Estado de la Orden",
+    "greeting": "Hola",
+    "statusUpdatedMessage": "El estado de su pedido ha sido actualizado.",
+    "statusLabel": "Estado",
+    "orderNumberLabel": "Número de Pedido",
+    "supportMessage": "Si tiene alguna pregunta, no dude en contactarnos.",
+    "footerText": "Gracias por comprar con nosotros."
+  }
+}

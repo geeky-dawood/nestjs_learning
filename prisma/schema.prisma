@@ -50,6 +50,12 @@ enum EmailAttemptStatus {
   FAILED
 }
 
+enum Language {
+  EN
+  ES
+  FR
+}
+
 model User {
   id              String   @id @default(uuid())
   name            String
@@ -61,9 +67,10 @@ model User {
   is_verified     Boolean  @default(false)
   role            UserRole @default(USER)
 
-  wrong_attempts Int       @default(0)
-  is_locked      Boolean   @default(false)
-  lock_until     DateTime?
+  wrong_attempts     Int       @default(0)
+  is_locked          Boolean   @default(false)
+  lock_until         DateTime?
+  preferred_language Language  @default(EN)
 
   address  Address[]
   attempts LoginAttempts[]

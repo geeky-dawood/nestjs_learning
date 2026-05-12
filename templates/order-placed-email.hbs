@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{lang}}">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Order Update</title>
+
+  <title>{{title}}</title>
 
   <style>
     body {
@@ -67,23 +68,22 @@
   <div class="container">
 
     <div class="header">
-      <h1>Order Update</h1>
+      <h1>{{title}}</h1>
     </div>
 
-    <p>Hello {{name}},</p>
+    <p>{{greeting}} {{name}},</p>
 
-    <p>Thank you for your order. Here are your order details:</p>
+    <p>{{thankYouMessage}}</p>
 
-    <!-- ✅ Order Number Added -->
     <div class="order-meta">
-      <strong>Order Number:</strong> {{orderNumber}}
+      <strong>{{orderNumberLabel}}:</strong> {{orderNumber}}
     </div>
 
     <table class="order-table">
       <thead>
         <tr>
-          <th>Product</th>
-          <th>Quantity</th>
+          <th>{{productLabel}}</th>
+          <th>{{quantityLabel}}</th>
         </tr>
       </thead>
 
@@ -98,17 +98,19 @@
     </table>
 
     <p class="status">
-      Order Status: {{status}}
+      {{orderStatusLabel}}: {{status}}
     </p>
 
     {{#if trackingLink}}
     <p>
-      You can track your order here:
-      <a href="{{trackingLink}}" target="_blank">Track Order</a>
+      {{trackingText}}
+      <a href="{{trackingLink}}" target="_blank">
+        {{trackOrderLabel}}
+      </a>
     </p>
     {{/if}}
 
-    <p>If you have any questions, feel free to contact us.</p>
+    <p>{{supportMessage}}</p>
 
   </div>
 </body>
