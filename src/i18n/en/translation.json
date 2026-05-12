@@ -15,7 +15,10 @@
     "subject": "Order Status Updated",
     "title": "Order Status Update",
     "greeting": "Hello",
-    "status": "Order Status",
-    "orderNumber": "Order Number"
+    "statusUpdatedMessage": "Your order status has been updated.",
+    "statusLabel": "Status",
+    "orderNumberLabel": "Order Number",
+    "supportMessage": "If you have any questions, feel free to contact us.",
+    "footerText": "Thank you for shopping with us."
   }
 }
