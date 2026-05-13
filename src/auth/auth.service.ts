@@ -14,6 +14,7 @@ import { User } from '../generated/prisma/client';
 import { BaseService } from '../common/database/base.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { StripeService } from '../stripe/stripe.service';
 
 @Injectable()
 export class AuthService extends BaseService<User> {
@@ -21,6 +22,7 @@ export class AuthService extends BaseService<User> {
     protected prisma: PrismaService,
     private jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly stripeService: StripeService,
   ) {
     super(prisma, prisma.user);
   }
@@ -52,13 +54,17 @@ export class AuthService extends BaseService<User> {
           role: payload.role,
           preferred_language: payload.preferred_language,
         },
-        omit: { password: true },
       });
+
+      const customer = await this.stripeService.createCustomer(user);
+
+      const { password, ...userWithoutPassword } = user;
 
       return {
         message: 'Registration Successful',
         data: {
-          ...user,
+          ...userWithoutPassword,
+          stripe_customer_id: customer.id,
         },
       };
     } catch (error) {
