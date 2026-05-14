@@ -10,6 +10,7 @@ import { MailModule } from './mail/mail.module';
 import { PaginationModule } from './pagination/pagination.module';
 import { TaskModule } from './task/task.module';
 import { StripeModule } from './stripe/stripe.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { StripeModule } from './stripe/stripe.module';
     TaskModule,
     StripeModule,
     StripeModule,
+    PaymentModule,
   ],
 })
 export class AppModule {}

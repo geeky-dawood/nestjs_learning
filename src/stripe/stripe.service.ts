@@ -1,93 +1,104 @@
-import {
-  Injectable,
-  Inject,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
-import { STRIPE_CLIENT } from './stripe.constants';
-import { PaymentEventType, User } from '../generated/prisma/browser';
-import { PrismaService } from '../prisma/prisma.service';
+import { STRIPE_CLIENT } from './constant/stripe.constants';
+import { User } from '../generated/prisma/client';
 
 @Injectable()
 export class StripeService {
+  private readonly logger = new Logger(StripeService.name);
+
   constructor(
     @Inject(STRIPE_CLIENT)
     private readonly stripe: Stripe,
-    private readonly prisma: PrismaService,
   ) {}
 
-  async createCustomer(user: User) {
-    try {
-      const customer = await this.stripe.customers.create({
-        email: user.email,
-        name: user.name,
-        metadata: {
-          userId: user.id,
-        },
-      });
+  async createAndRetrieveCustomer(user: User): Promise<Stripe.Customer> {
+    const customer = await this.stripe.customers.create({
+      email: user.email,
+      name: user.name,
+      metadata: { userId: user.id },
+    });
 
-      await this.prisma.user.update({
-        where: {
-          id: user.id,
-        },
-        data: {
-          stripe_customer_id: customer.id,
-        },
-      });
+    this.logger.log(
+      `Stripe customer created: ${customer.id} (user: ${user.id})`,
+    );
 
-      return customer;
-    } catch (error) {
-      throw error;
-    }
+    return customer;
   }
 
-  async createPaymentIntent(
-    user: User,
-    body: { amount: number; orderId: string },
-  ) {
-    if (!user.stripe_customer_id) {
-      throw new UnprocessableEntityException(
-        'User does not have a Stripe customer ID',
-      );
-    }
-    try {
-      const orderId = body.orderId || `order_${Date.now()}`;
+  async retrieveCustomer(customerId: string): Promise<Stripe.Customer> {
+    return this.stripe.customers.retrieve(
+      customerId,
+    ) as Promise<Stripe.Customer>;
+  }
 
-      const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: body.amount,
-        currency: 'usd',
+  async createCheckoutSession(params: {
+    customerId: string;
+    paymentId: string;
+    orderId: string;
+    userId: string;
+    amount: number;
+    currency: string;
+    description: string;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<Stripe.Checkout.Session> {
+    const session = await this.stripe.checkout.sessions.create(
+      {
+        customer: params.customerId,
         payment_method_types: ['card'],
-        customer: user.stripe_customer_id,
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: params.currency,
+              unit_amount: params.amount,
+              product_data: {
+                name: params.description,
+                metadata: {
+                  order_id: params.orderId,
+                  payment_id: params.paymentId,
+                },
+              },
+            },
+            quantity: 1,
+          },
+        ],
         metadata: {
-          integration_check: 'accept_a_payment',
-          userId: user.id,
-          orderId: orderId,
+          payment_id: params.paymentId,
+          order_id: params.orderId,
+          user_id: params.userId,
         },
-      });
+        success_url: params.successUrl,
+        cancel_url: params.cancelUrl,
+        expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+      },
+      {
+        idempotencyKey: `checkout-session-${params.paymentId}`,
+      },
+    );
 
-      await this.prisma.payment.create({
-        data: {
-          order_id: orderId,
-          amount: body.amount,
-          currency: 'usd',
-          user_id: user.id,
-          description: `Payment for order ${orderId}`,
-        },
-      });
+    this.logger.log(
+      `Checkout session created: ${session.id} for payment: ${params.paymentId}`,
+    );
+    return session;
+  }
 
-      await this.prisma.paymentActivityLogs.create({
-        data: {
-          payment_id: paymentIntent.id,
-          order_id: orderId,
-          user_id: user.id,
-          event_type: PaymentEventType.PAYMENT_INTENT_CREATED,
-          description: `Payment intent created for order ${orderId} with amount ${body.amount}`,
-        },
-      });
+  async retrieveCheckoutSession(
+    sessionId: string,
+  ): Promise<Stripe.Checkout.Session> {
+    return this.stripe.checkout.sessions.retrieve(sessionId);
+  }
 
-      return paymentIntent;
-    } catch (error) {
-      throw error;
-    }
+  constructWebhookEvent(
+    rawBody: Buffer,
+    signature: string,
+    webhookSecret: string,
+  ): Stripe.Event {
+    return this.stripe.webhooks.constructEvent(
+      rawBody,
+      signature,
+      webhookSecret,
+    );
   }
 }

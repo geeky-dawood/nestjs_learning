@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
-import { STRIPE_CLIENT } from './stripe.constants';
+import { STRIPE_CLIENT } from './constant/stripe.constants';
 import { StripeService } from './stripe.service';
 import { StripeController } from './stripe.controller';
 

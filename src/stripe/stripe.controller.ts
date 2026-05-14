@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Controller, Post, UseGuards } from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { GetUser } from '../auth/decorator/user.decorator';
 import * as client from '../generated/prisma/client';
@@ -10,20 +10,8 @@ export class StripeController {
   constructor(private readonly stripeService: StripeService) {}
 
   @Post('create-customer')
-  async createCustomer(@GetUser() body: client.User) {
-    const customer = await this.stripeService.createCustomer(body);
+  async createCustomer(@GetUser() user: client.User) {
+    const customer = await this.stripeService.createAndRetrieveCustomer(user);
     return customer;
-  }
-
-  @Post('create-payment-intent')
-  async createPaymentIntent(
-    @GetUser() user: client.User,
-    @Body() body: { amount: number; orderId: string },
-  ) {
-    const paymentIntent = await this.stripeService.createPaymentIntent(
-      user,
-      body,
-    );
-    return paymentIntent;
   }
 }
