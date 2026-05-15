@@ -9,6 +9,7 @@ import { OrderModule } from './order/order.module';
 import { MailModule } from './mail/mail.module';
 import { PaginationModule } from './pagination/pagination.module';
 import { TaskModule } from './task/task.module';
+import { ImageUploadModule } from './image-upload/image-upload.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TaskModule } from './task/task.module';
     MailModule,
     PaginationModule,
     TaskModule,
+    ImageUploadModule,
   ],
 })
 export class AppModule {}
