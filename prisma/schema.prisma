@@ -115,13 +115,14 @@ model Order {
 }
 
 model Product {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   title       String
   description String
   price       Int
   category    String?
   quantity    Int
-  is_deleted  Boolean @default(false)
+  is_deleted  Boolean  @default(false)
+  images      String[]
 
   orders OrderItem[]
 

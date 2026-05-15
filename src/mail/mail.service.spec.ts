@@ -110,7 +110,7 @@ describe('MailService', () => {
         }),
       );
 
-      expect(result).toEqual(MAILER_ORDER_PLACED_RESPONSE);
+      expect(result).toEqual({ success: true, reason: null });
     });
 
     it('should default quantity to 1 if item is not matched in products', async () => {
@@ -203,6 +203,24 @@ describe('MailService', () => {
       );
       expect(result).toBeTruthy();
     });
+
+    it('should allow pending SMTP responses without an SMTP response string', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(MOCK_MAIL_USER);
+      mockPrisma.product.findMany.mockResolvedValue(MOCK_MAIL_PRODUCTS);
+      mockMailer.sendMail.mockResolvedValue({
+        accepted: [],
+        rejected: [],
+        pending: [MOCK_MAIL_USER.email],
+      });
+
+      const result = await service.sendOrderPlacedEmail(
+        '1',
+        ORDER_PLACED_ITEMS,
+        'ORD-001',
+      );
+
+      expect(result).toEqual({ success: true, reason: null });
+    });
   });
 
   describe('sendOrderStatusEmail', () => {
@@ -234,7 +252,7 @@ describe('MailService', () => {
         }),
       );
 
-      expect(result).toEqual(MAILER_ORDER_STATUS_RESPONSE);
+      expect(result).toEqual({ success: true, reason: null });
     });
 
     it('should set subject dynamically based on status', async () => {
