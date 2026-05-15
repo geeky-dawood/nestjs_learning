@@ -137,10 +137,6 @@ export class MailService {
 
       const t = i18next.getFixedT(lang);
 
-      this.logger.debug(`i18next initialized: ${i18next.isInitialized}`);
-      this.logger.debug(`Resolved lang: ${lang}`);
-      this.logger.debug(`Test translation: ${t('orderStatus.title')}`);
-
       await this.send({
         to: user.email,
 
