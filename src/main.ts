@@ -6,6 +6,8 @@ import { initI18n } from './common/i18n/i18n.config';
 import { AllExceptionsFilter } from './stripe/exceptions/all-exceptions.filter';
 
 async function bootstrap() {
+  await initI18n();
+
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
 

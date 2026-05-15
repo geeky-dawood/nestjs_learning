@@ -229,7 +229,7 @@ describe('OrderService', () => {
           PLACE_ORDER_SINGLE_ITEM,
         );
 
-        expect(result.message).toBe('order Placed');
+        expect(result.message).toBe('Order Placed');
         expect(result.data).toMatchObject({ id: MOCK_ORDER_ID });
 
         // stock decremented
@@ -293,7 +293,7 @@ describe('OrderService', () => {
           PLACE_ORDER_MULTI_ITEM,
         );
 
-        expect(result.message).toBe('order Placed');
+        expect(result.message).toBe('Order Placed');
         expect(mockTx.order.create).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({ total_price: 400 }),
@@ -384,9 +384,18 @@ describe('OrderService', () => {
 
       await expect(
         service.createOrder(MOCK_USER_ID, PLACE_ORDER_DUPLICATE_ITEMS),
-      ).rejects.toThrow(
-        'Duplicate product found in order items. Each product must appear only once.',
-      );
+      ).rejects.toThrow('Duplicate product found in order items.');
+    });
+
+    it('should throw when returned products do not match requested item ids', async () => {
+      prisma.user.findUnique.mockResolvedValue(MOCK_USER);
+      productService.findMany.mockResolvedValue([
+        { ...MOCK_PRODUCT_P2, id: 'unexpected-product-id' },
+      ]);
+
+      await expect(
+        service.createOrder(MOCK_USER_ID, PLACE_ORDER_SINGLE_ITEM),
+      ).rejects.toThrow('Product with ID p1 not found.');
     });
   });
 
@@ -1041,6 +1050,28 @@ describe('OrderService', () => {
         }),
       );
       expect(result.data[0].items).toBeDefined();
+    });
+
+    it('uses paginateOrders defaults when no pagination options are provided', async () => {
+      prisma.order.findMany.mockResolvedValue([MOCK_ORDER_WITH_ITEMS]);
+      prisma.order.count.mockResolvedValue(1);
+
+      const result = await (service as any).paginateOrders({});
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {},
+          skip: 0,
+          take: 10,
+        }),
+      );
+      expect(result.data).toEqual([MOCK_ORDER_WITH_ITEMS]);
+    });
+
+    it('returns a default message for unknown status values', () => {
+      expect((service as any).meanfulMsgOnStatusChange('RETURNED')).toBe(
+        'Status Updated',
+      );
     });
   });
 });

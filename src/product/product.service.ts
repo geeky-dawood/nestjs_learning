@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -21,14 +22,24 @@ export class ProductService extends BaseService<Product> {
   }
 
   async createProduct(payload: CreateProductDto) {
-    const product = await this.create(payload);
+    try {
+      const product = await this.create(payload);
 
-    return {
-      message: 'Created',
-      data: {
-        ...product,
-      },
-    };
+      return {
+        message: 'Created',
+        data: {
+          ...product,
+        },
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Something went wrong while creating product',
+      );
+    }
   }
 
   async allProduct(query?: GetAllProductsPaginationDto) {
@@ -66,8 +77,13 @@ export class ProductService extends BaseService<Product> {
         },
       });
     } catch (error) {
-      console.log(error);
-      throw error;
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Something went wrong while creating product',
+      );
     }
   }
 
@@ -94,8 +110,13 @@ export class ProductService extends BaseService<Product> {
 
       return { message: 'Deleted Successfully!' };
     } catch (error) {
-      console.log(error);
-      throw error;
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Something went wrong while creating product',
+      );
     }
   }
 
@@ -127,9 +148,12 @@ export class ProductService extends BaseService<Product> {
         data: updatedProduct,
       };
     } catch (error) {
-      console.log(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new InternalServerErrorException(
-        'Something went wrong while updating stock',
+        'Something went wrong while creating product',
       );
     }
   }

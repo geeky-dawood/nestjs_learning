@@ -11,6 +11,7 @@ import { PaginationModule } from './pagination/pagination.module';
 import { TaskModule } from './task/task.module';
 import { StripeModule } from './stripe/stripe.module';
 import { PaymentModule } from './payment/payment.module';
+import { ImageUploadModule } from './image-upload/image-upload.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PaymentModule } from './payment/payment.module';
     StripeModule,
     StripeModule,
     PaymentModule,
+    ImageUploadModule,
   ],
 })
 export class AppModule {}
