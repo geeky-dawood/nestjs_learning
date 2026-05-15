@@ -5,7 +5,7 @@ import {
   IsString,
   Matches,
 } from 'class-validator';
-import { UserRole } from '../generated/prisma/enums';
+import { Language, UserRole } from '../generated/prisma/enums';
 
 export class SignupDto {
   @IsOptional()
@@ -50,4 +50,8 @@ export class SignupDto {
   @IsOptional()
   @IsString()
   profile_picture?: string;
+
+  @IsEnum(Language)
+  @IsOptional()
+  preferred_language: Language;
 }

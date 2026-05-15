@@ -50,6 +50,7 @@ export class AuthService extends BaseService<User> {
           dob: payload.dob,
           profile_picture: payload.profile_picture,
           role: payload.role,
+          preferred_language: payload.preferred_language,
         },
         omit: { password: true },
       });

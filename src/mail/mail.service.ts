@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OrderProductDto } from '../dto/place_order.dto';
 import { OrderStatusDto } from '../dto/order_status.dto';
 import { ConfigService } from '@nestjs/config';
+import i18next from 'i18next';
+import { initI18n } from '../common/i18n/i18n.config';
 
 type MailerSendResponse = {
   accepted?: string[];
@@ -29,6 +31,8 @@ export class MailService {
     order_number: string,
   ) {
     try {
+      await initI18n();
+
       const user = await this.prismaService.user.findUnique({
         where: { id: user_id },
       });
@@ -36,6 +40,10 @@ export class MailService {
       if (!user) {
         throw new Error(`User not found for id: ${user_id}`);
       }
+
+      const lang = (user.preferred_language ?? 'EN').toLowerCase();
+
+      const t = i18next.getFixedT(lang!);
 
       const productIds = items.map((i) => i.product_id);
 
@@ -60,13 +68,37 @@ export class MailService {
 
       await this.send({
         to: user.email,
-        subject: 'Order Confirmation',
+
+        subject: t('orderPlaced.subject'),
+
         template: 'order-placed-email',
+
         context: {
+          lang,
+
           name: user.name,
+
           products: enrichedProducts,
+
           status: 'Placed',
+
           orderNumber: order_number,
+
+          title: t('orderPlaced.title'),
+
+          greeting: t('orderPlaced.greeting'),
+
+          thankYouMessage: t('orderPlaced.thankYou'),
+
+          productLabel: t('orderPlaced.product'),
+
+          quantityLabel: t('orderPlaced.quantity'),
+
+          orderNumberLabel: t('orderPlaced.orderNumber'),
+
+          orderStatusLabel: t('orderPlaced.status'),
+
+          supportMessage: t('orderPlaced.support'),
         },
       });
 
@@ -86,6 +118,8 @@ export class MailService {
 
   async sendOrderStatusEmail(user_id: string, body: OrderStatusDto) {
     try {
+      await initI18n();
+
       const user = await this.prismaService.user.findUnique({
         where: { id: user_id },
       });
@@ -104,14 +138,40 @@ export class MailService {
         throw new Error(`Order not found for id: ${body.order_id}`);
       }
 
+      const lang = (user.preferred_language ?? 'EN').toLowerCase();
+
+      const t = i18next.getFixedT(lang!);
+
       await this.send({
         to: user.email,
-        subject: `Order ${body.status}`,
+
+        subject: t('orderStatus.subject'),
+
         template: 'order-status-email',
+
         context: {
+          lang,
+
           name: user.name,
           status: body.status,
           orderNumber: order.order_number,
+
+          message: null,
+
+          // Translations
+          title: t('orderStatus.title'),
+
+          greeting: t('orderStatus.greeting'),
+
+          statusUpdatedMessage: t('orderStatus.statusUpdatedMessage'),
+
+          orderNumberLabel: t('orderStatus.orderNumberLabel'),
+
+          statusLabel: t('orderStatus.statusLabel'),
+
+          supportMessage: t('orderStatus.supportMessage'),
+
+          footerText: t('orderStatus.footerText'),
         },
       });
 
