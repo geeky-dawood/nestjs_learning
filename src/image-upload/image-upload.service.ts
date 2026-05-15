@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabass/supabass.service';
@@ -30,7 +31,7 @@ export class ImageUploadService {
       });
 
       if (!product) {
-        throw new BadRequestException('Product not found.');
+        throw new NotFoundException('Product not found.');
       }
 
       const maxFileSize =
