@@ -43,7 +43,7 @@ export class MailService {
 
       const lang = (user.preferred_language ?? 'EN').toLowerCase();
 
-      const t = i18next.getFixedT(lang);
+      const t = i18next.getFixedT(lang!);
 
       const productIds = items.map((i) => i.product_id);
 
@@ -140,7 +140,7 @@ export class MailService {
 
       const lang = (user.preferred_language ?? 'EN').toLowerCase();
 
-      const t = i18next.getFixedT(lang);
+      const t = i18next.getFixedT(lang!);
 
       await this.send({
         to: user.email,
