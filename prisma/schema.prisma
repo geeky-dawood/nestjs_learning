@@ -70,7 +70,7 @@ model User {
   wrong_attempts     Int       @default(0)
   is_locked          Boolean   @default(false)
   lock_until         DateTime?
-  preferred_language Language  @default(EN)
+  preferred_language Language? @default(EN)
 
   address  Address[]
   attempts LoginAttempts[]

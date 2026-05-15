@@ -12,13 +12,13 @@
   },
 
   "orderStatus": {
-    "subject": "Order Status Updated",
-    "title": "Order Status Update",
-    "greeting": "Hello",
-    "statusUpdatedMessage": "Your order status has been updated.",
-    "statusLabel": "Status",
-    "orderNumberLabel": "Order Number",
-    "supportMessage": "If you have any questions, feel free to contact us.",
-    "footerText": "Thank you for shopping with us."
+    "subject": "Statut de commande mis à jour",
+    "title": "Mise à jour du statut de la commande",
+    "greeting": "Bonjour",
+    "statusUpdatedMessage": "Le statut de votre commande a été mis à jour.",
+    "statusLabel": "Statut",
+    "orderNumberLabel": "Numéro de commande",
+    "supportMessage": "Si vous avez des questions, n’hésitez pas à nous contacter.",
+    "footerText": "Merci pour votre achat chez nous."
   }
 }
