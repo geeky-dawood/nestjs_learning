@@ -4,22 +4,30 @@ import en from '../../i18n/en/translation.json';
 import es from '../../i18n/es/translation.json';
 import fr from '../../i18n/fr/translation.json';
 
-export async function initI18n() {
-  await i18next.init({
-    fallbackLng: 'en',
+let i18nInitPromise: Promise<void> | null = null;
 
-    resources: {
-      en: {
-        translation: en,
-      },
+export function initI18n() {
+  if (!i18nInitPromise) {
+    i18nInitPromise = i18next
+      .init({
+        fallbackLng: 'en',
 
-      es: {
-        translation: es,
-      },
+        resources: {
+          en: {
+            translation: en,
+          },
 
-      fr: {
-        translation: fr,
-      },
-    },
-  });
+          es: {
+            translation: es,
+          },
+
+          fr: {
+            translation: fr,
+          },
+        },
+      })
+      .then(() => undefined);
+  }
+
+  return i18nInitPromise;
 }

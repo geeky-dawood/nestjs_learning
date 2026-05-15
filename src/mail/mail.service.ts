@@ -5,6 +5,7 @@ import { OrderProductDto } from '../dto/place_order.dto';
 import { OrderStatusDto } from '../dto/order_status.dto';
 import { ConfigService } from '@nestjs/config';
 import i18next from 'i18next';
+import { initI18n } from '../common/i18n/i18n.config';
 
 type MailerSendResponse = {
   accepted?: string[];
@@ -30,6 +31,8 @@ export class MailService {
     order_number: string,
   ) {
     try {
+      await initI18n();
+
       const user = await this.prismaService.user.findUnique({
         where: { id: user_id },
       });
@@ -38,7 +41,7 @@ export class MailService {
         throw new Error(`User not found for id: ${user_id}`);
       }
 
-      const lang = user.preferred_language.toLowerCase();
+      const lang = (user.preferred_language ?? 'EN').toLowerCase();
 
       const t = i18next.getFixedT(lang);
 
@@ -115,6 +118,8 @@ export class MailService {
 
   async sendOrderStatusEmail(user_id: string, body: OrderStatusDto) {
     try {
+      await initI18n();
+
       const user = await this.prismaService.user.findUnique({
         where: { id: user_id },
       });
@@ -133,7 +138,7 @@ export class MailService {
         throw new Error(`Order not found for id: ${body.order_id}`);
       }
 
-      const lang = user.preferred_language.toLowerCase();
+      const lang = (user.preferred_language ?? 'EN').toLowerCase();
 
       const t = i18next.getFixedT(lang);
 
