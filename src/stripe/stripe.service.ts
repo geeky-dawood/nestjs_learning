@@ -42,32 +42,43 @@ export class StripeService {
     description: string;
     successUrl: string;
     cancelUrl: string;
+    productSummary: {
+      product_id: string;
+      name: string;
+      category: string;
+      quantity: number;
+      unit_price: number;
+    }[];
+    lineItems: {
+      price_data: {
+        currency: string;
+        unit_amount: number;
+        product_data: {
+          name: string;
+          description?: string;
+          metadata: Record<string, string>;
+        };
+      };
+      quantity: number;
+    }[];
   }): Promise<Stripe.Checkout.Session> {
+    const productsJson = JSON.stringify(params.productSummary);
+
     const session = await this.stripe.checkout.sessions.create(
       {
         customer: params.customerId,
         payment_method_types: ['card'],
         mode: 'payment',
-        line_items: [
-          {
-            price_data: {
-              currency: params.currency,
-              unit_amount: params.amount,
-              product_data: {
-                name: params.description,
-                metadata: {
-                  order_id: params.orderId,
-                  payment_id: params.paymentId,
-                },
-              },
-            },
-            quantity: 1,
-          },
-        ],
+        line_items: params.lineItems,
+
         metadata: {
           payment_id: params.paymentId,
           order_id: params.orderId,
           user_id: params.userId,
+          products:
+            productsJson.length <= 500
+              ? productsJson
+              : `truncated:${params.productSummary.length}_items`,
         },
         success_url: params.successUrl,
         cancel_url: params.cancelUrl,

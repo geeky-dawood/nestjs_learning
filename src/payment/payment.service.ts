@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 import {
   Injectable,
   Logger,
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  ForbiddenException,
 } from '@nestjs/common';
 import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +15,7 @@ import {
   PaymentStatus,
   PaymentEventType,
   User,
+  OrderStatusEnum,
 } from '../generated/prisma/client';
 import { CreateCheckoutSessionDto } from '../dto/checkout session.dto';
 
@@ -43,7 +46,28 @@ export class PaymentService {
   }
 
   async createCheckoutSession(user: User, dto: CreateCheckoutSessionDto) {
-    const { order_id, amount, currency, description } = dto;
+    const { order_id, currency, description } = dto;
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: order_id },
+      include: {
+        items: {
+          include: { product: true },
+        },
+      },
+    });
+
+    if (!order) throw new NotFoundException(`Order ${order_id} not found`);
+    if (order.user_id !== user.id)
+      throw new ForbiddenException('Order does not belong to you');
+    if (order.order_status === OrderStatusEnum.CANCELLED) {
+      throw new BadRequestException('Cannot pay for a cancelled order');
+    }
+
+    const amount = order.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
 
     const existing = await this.prisma.payment.findFirst({
       where: {
@@ -81,6 +105,30 @@ export class PaymentService {
       description: 'Checkout session initiated',
     });
 
+    const productSummary = order.items.map((item) => ({
+      product_id: item.product_id,
+      name: item.product.title,
+      category: item.product.category ?? '',
+      quantity: item.quantity,
+      unit_price: item.price,
+    }));
+
+    const stripeLineItems = order.items.map((item) => ({
+      price_data: {
+        currency: currency.toLowerCase(),
+        unit_amount: item.price, // already in cents
+        product_data: {
+          name: item.product.title,
+          description: item.product.description ?? undefined,
+          metadata: {
+            product_id: item.product_id,
+            category: item.product.category ?? '',
+          },
+        },
+      },
+      quantity: item.quantity,
+    }));
+
     let session: Stripe.Checkout.Session;
     try {
       session = await this.stripeService.createCheckoutSession({
@@ -93,6 +141,8 @@ export class PaymentService {
         description: description ?? `Order #${order_id}`,
         successUrl: `${this.config.getOrThrow('CLIENT_URL')}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${this.config.getOrThrow('CLIENT_URL')}/payment/cancel?order_id=${order_id}`,
+        lineItems: stripeLineItems,
+        productSummary: productSummary,
       });
     } catch (error) {
       await this.prisma.payment.update({
