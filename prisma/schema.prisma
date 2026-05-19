@@ -56,6 +56,28 @@ enum Language {
   FR
 }
 
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  EXPIRED
+  REFUNDED
+}
+
+enum PaymentEventType {
+  PAYMENT_INTENT_CREATED
+  PAYMENT_INTENT_SUCCEEDED
+  PAYMENT_INTENT_FAILED
+  PAYMENT_INTENT_CANCELED
+  PAYMENT_INTENT_REFUNDED
+  CHECKOUT_SESSION_CREATED
+  CHECKOUT_SESSION_EXPIRED
+  CHECKOUT_SESSION_SYNCED
+  PAYMENT_INITIATED
+}
+
 model User {
   id              String   @id @default(uuid())
   name            String
@@ -75,10 +97,12 @@ model User {
   address  Address[]
   attempts LoginAttempts[]
 
-  orders Order[]
+  orders             Order[]
+  stripe_customer_id String? @unique
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  payments  Payment[]
 
   @@map("users")
 }
@@ -212,4 +236,44 @@ model EmailActivityLogs {
 
   @@index([attempt_status, retry_count, createdAt])
   @@map("email_activity_logs")
+}
+
+model Payment {
+  id String @id @default(uuid())
+
+  order_id    String
+  amount      Int
+  currency    String
+  status      PaymentStatus @default(PENDING)
+  description String?
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+model PaymentActivityLogs {
+  id String @id @default(uuid())
+
+  user_id    String
+  order_id   String?
+  payment_id String
+
+  previous_status PaymentStatus?
+  current_status  PaymentStatus?
+
+  event_type PaymentEventType
+
+  description String?
+  retry_count Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([current_status, retry_count, createdAt])
+  @@map("payment_activity_logs")
 }

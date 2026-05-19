@@ -52,13 +52,14 @@ export class AuthService extends BaseService<User> {
           role: payload.role,
           preferred_language: payload.preferred_language,
         },
-        omit: { password: true },
       });
+
+      const { password, ...userWithoutPassword } = user;
 
       return {
         message: 'Registration Successful',
         data: {
-          ...user,
+          ...userWithoutPassword,
         },
       };
     } catch (error) {

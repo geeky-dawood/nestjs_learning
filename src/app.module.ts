@@ -9,6 +9,8 @@ import { OrderModule } from './order/order.module';
 import { MailModule } from './mail/mail.module';
 import { PaginationModule } from './pagination/pagination.module';
 import { TaskModule } from './task/task.module';
+import { StripeModule } from './stripe/stripe.module';
+import { PaymentModule } from './payment/payment.module';
 import { ImageUploadModule } from './image-upload/image-upload.module';
 
 @Module({
@@ -23,6 +25,9 @@ import { ImageUploadModule } from './image-upload/image-upload.module';
     MailModule,
     PaginationModule,
     TaskModule,
+    StripeModule,
+    StripeModule,
+    PaymentModule,
     ImageUploadModule,
   ],
 })
