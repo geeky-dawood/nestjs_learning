@@ -31,4 +31,4 @@ async function bootstrap() {
   await initI18n();
   await app.listen(port);
 }
-bootstrap();
+void bootstrap();

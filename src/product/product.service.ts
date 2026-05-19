@@ -11,6 +11,7 @@ import { Product } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationService } from '../pagination/pagination.service';
 import { GetAllProductsPaginationDto } from '../dto/all_product.dto';
+import { UpdateProductDto } from '../dto/update_product.dto';
 
 @Injectable()
 export class ProductService extends BaseService<Product> {
@@ -30,6 +31,40 @@ export class ProductService extends BaseService<Product> {
         data: {
           ...product,
         },
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Something went wrong while creating product',
+      );
+    }
+  }
+
+  async updateProduct(product_id: string, payload: UpdateProductDto) {
+    try {
+      const product = await this.findOne({
+        where: {
+          id: product_id,
+        },
+      });
+
+      if (!product || product.is_deleted === true) {
+        throw new NotFoundException('product does not exists.');
+      }
+
+      const updatedProduct = await this.update(
+        {
+          id: product_id,
+        },
+        payload,
+      );
+
+      return {
+        message: 'Updated Successfully!',
+        data: updatedProduct,
       };
     } catch (error) {
       if (error instanceof HttpException) {
