@@ -115,10 +115,9 @@ export class PaymentService {
     const stripeLineItems = order.items.map((item) => ({
       price_data: {
         currency: currency.toLowerCase(),
-        unit_amount: item.price, // already in cents
+        unit_amount: item.price,
         product_data: {
           name: item.product.title,
-          description: item.product.description ?? undefined,
           metadata: {
             product_id: item.product_id,
             category: item.product.category ?? '',
