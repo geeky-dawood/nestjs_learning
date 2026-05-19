@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 import {
   Injectable,
   Logger,
@@ -211,49 +210,35 @@ export class PaymentService {
 
     switch (event.type) {
       case 'checkout.session.async_payment_succeeded':
-        await this.onSessionAsyncPaymentSucceeded(
-          event.data.object as Stripe.Checkout.Session,
-        );
+        await this.onSessionAsyncPaymentSucceeded(event.data.object);
         break;
 
       case 'checkout.session.async_payment_failed':
-        await this.onSessionAsyncPaymentFailed(
-          event.data.object as Stripe.Checkout.Session,
-        );
+        await this.onSessionAsyncPaymentFailed(event.data.object);
         break;
 
       case 'checkout.session.completed':
-        await this.onSessionCompleted(
-          event.data.object as Stripe.Checkout.Session,
-        );
+        await this.onSessionCompleted(event.data.object);
         break;
 
       case 'checkout.session.expired':
-        await this.onSessionExpired(
-          event.data.object as Stripe.Checkout.Session,
-        );
+        await this.onSessionExpired(event.data.object);
         break;
 
       case 'payment_intent.succeeded':
-        await this.onPaymentIntentSucceeded(
-          event.data.object as Stripe.PaymentIntent,
-        );
+        await this.onPaymentIntentSucceeded(event.data.object);
         break;
 
       case 'payment_intent.payment_failed':
-        await this.onPaymentIntentFailed(
-          event.data.object as Stripe.PaymentIntent,
-        );
+        await this.onPaymentIntentFailed(event.data.object);
         break;
 
       case 'payment_intent.canceled':
-        await this.onPaymentIntentCanceled(
-          event.data.object as Stripe.PaymentIntent,
-        );
+        await this.onPaymentIntentCanceled(event.data.object);
         break;
 
       case 'charge.refunded':
-        await this.onChargeRefunded(event.data.object as Stripe.Charge);
+        await this.onChargeRefunded(event.data.object);
         break;
 
       default:
