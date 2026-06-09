@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import { RolesGuard } from '../auth/guard/role.auth.guard';
 import { Roles } from '../auth/decorator/role.decorator';
 import { OrderStatusDto } from '../dto/order_status.dto';
 import { OrderFilterDto } from '../dto/filter.dto';
+import { BulkOrderStatusDto } from '../dto/bulk_order_status';
 
 @UseGuards(JwtAuthGuard)
 @Controller('order')
@@ -44,6 +46,13 @@ export class OrderController {
   @Patch('/change-order-status')
   async changeOrderStatus(@Query() query: OrderStatusDto) {
     return await this.orderService.changeOrderStatus(query);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @Put('/bulk-update-order-status')
+  async bulkUpdateOrderStatus(@Body() payload: BulkOrderStatusDto) {
+    return await this.orderService.bulkUpdateOrderStatus(payload);
   }
 
   @Get('/user/:userId')

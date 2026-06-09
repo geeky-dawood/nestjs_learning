@@ -76,6 +76,7 @@ enum PaymentEventType {
   CHECKOUT_SESSION_EXPIRED
   CHECKOUT_SESSION_SYNCED
   PAYMENT_INITIATED
+  PAYMENT_STATUS_UPDATED_BY_ADMIN
 }
 
 model User {
@@ -127,7 +128,8 @@ model Order {
   total_price  Int
   order_status OrderStatusEnum @default(PENDING)
 
-  items OrderItem[]
+  items    OrderItem[]
+  payments Payment[]
 
   user    User   @relation(fields: [user_id], references: [id])
   user_id String
@@ -173,7 +175,7 @@ model OrderItem {
   @@map("order_items")
 }
 
-model ActivityLogs {
+model OrderActivityLogs {
   id String @id @default(uuid())
 
   user_id  String
@@ -192,7 +194,7 @@ model ActivityLogs {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("activity_logs")
+  @@map("order_activity_logs")
 }
 
 model Address {
@@ -241,7 +243,6 @@ model EmailActivityLogs {
 model Payment {
   id String @id @default(uuid())
 
-  order_id    String
   amount      Int
   currency    String
   status      PaymentStatus @default(PENDING)
@@ -249,6 +250,9 @@ model Payment {
 
   user_id String
   user    User   @relation(fields: [user_id], references: [id])
+
+  order_id String
+  order    Order  @relation(fields: [order_id], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

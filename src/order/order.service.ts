@@ -25,6 +25,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { OrderFilterDto } from '../dto/filter.dto';
 import { PaginationService } from '../pagination/pagination.service';
+import { BulkOrderStatusDto } from '../dto/bulk_order_status';
 
 @Injectable()
 export class OrderService extends BaseService<Order> {
@@ -377,22 +378,9 @@ export class OrderService extends BaseService<Order> {
         throw new NotFoundException('Invalid order Id');
       }
 
-      const validtransition: Record<OrderStatusEnum, OrderStatusEnum[]> = {
-        [OrderStatusEnum.PENDING]: [
-          OrderStatusEnum.CONFIRMED,
-          OrderStatusEnum.CANCELLED,
-        ],
-        [OrderStatusEnum.CONFIRMED]: [
-          OrderStatusEnum.CANCELLED,
-          OrderStatusEnum.COMPLETED,
-        ],
-        [OrderStatusEnum.CANCELLED]: [],
-        [OrderStatusEnum.COMPLETED]: [],
-      };
-
       const currentStatus = order.order_status;
 
-      if (!validtransition[currentStatus]?.includes(status)) {
+      if (!this.validTransition[currentStatus]?.includes(status)) {
         throw new NotAcceptableException(
           `Cannot transition from ${currentStatus} to ${status}`,
         );
@@ -447,11 +435,132 @@ export class OrderService extends BaseService<Order> {
       }
 
       return {
-        message: this.meanfulMsgOnStatusChange(status),
+        message: this.meaningfulMsgOnStatusChange(status),
       };
     } catch (error) {
       console.error(
         `Failed to change order status for order ${order_id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+
+      throw error;
+    }
+  }
+
+  async bulkUpdateOrderStatus(payload: BulkOrderStatusDto) {
+    try {
+      const requestedIds = payload.orders.map((o) => o.order_id);
+
+      const duplicateIds = requestedIds.filter(
+        (id, index) => requestedIds.indexOf(id) !== index,
+      );
+
+      if (duplicateIds.length > 0) {
+        throw new BadRequestException(
+          `Duplicate order ids found: ${[...new Set(duplicateIds)].join(', ')}`,
+        );
+      }
+
+      const existingOrders = await this.prisma.order.findMany({
+        where: {
+          id: {
+            in: requestedIds,
+          },
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      if (existingOrders.length === 0) {
+        throw new NotFoundException(
+          'No orders found against the provided order ids',
+        );
+      }
+
+      const foundIds = existingOrders.map((o) => o.id);
+
+      const missingIds = requestedIds.filter((id) => !foundIds.includes(id));
+
+      if (missingIds.length > 0) {
+        throw new NotFoundException(
+          `Orders not found: ${missingIds.join(', ')}`,
+        );
+      }
+
+      const requestedStatusMap = new Map(
+        payload.orders.map((o) => [o.order_id, o.order_status]),
+      );
+      const errors: string[] = [];
+
+      for (const order of existingOrders) {
+        const currentStatus = order.order_status;
+        const requestedStatus = requestedStatusMap.get(order.id);
+
+        if (
+          requestedStatus &&
+          !this.validTransition[currentStatus]?.includes(requestedStatus)
+        ) {
+          errors.push(
+            `Order ${order.id}: cannot transition from ${currentStatus} to ${requestedStatus}`,
+          );
+        }
+      }
+
+      if (errors.length > 0) {
+        throw new NotAcceptableException({
+          message: `Invalid status transitions found ${errors.length} errors.`,
+          errors,
+        });
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await Promise.all(
+          payload.orders.map((item) =>
+            tx.order.update({
+              where: {
+                id: item.order_id,
+              },
+              data: {
+                order_status: item.order_status,
+              },
+            }),
+          ),
+        );
+
+        const activityLogs = existingOrders.map((order) => ({
+          user_id: order.user_id,
+          order_id: order.id,
+          previous_status: order.order_status,
+          current_status:
+            requestedStatusMap.get(order.id) ?? order.order_status,
+          order_total_price: order.total_price,
+          ordered_product_quantity: order.items.reduce(
+            (total, item) => total + item.quantity,
+            0,
+          ),
+          action_performed_by: UserRole.ADMIN,
+          request_method: RequestMethod.PUT,
+          action_type: ActivityActionType.ORDER_STATUS_UPDATED,
+          description: `Bulk update: Order ${order.order_number}`,
+        }));
+
+        await tx.orderActivityLogs.createMany({
+          data: activityLogs,
+        });
+      });
+
+      return {
+        success: true,
+        updated_orders: existingOrders.length,
+        updated_order_ids: requestedIds,
+        message: `Successfully updated ${existingOrders.length} orders.`,
+      };
+    } catch (error) {
+      console.error(
+        `Failed to bulk update order status for orders ${payload.orders
+          .map((o) => o.order_id)
+          .join(', ')}`,
         error instanceof Error ? error.stack : String(error),
       );
 
@@ -547,7 +656,7 @@ export class OrderService extends BaseService<Order> {
     }
   }
 
-  private meanfulMsgOnStatusChange(status: OrderStatusEnum): string {
+  private meaningfulMsgOnStatusChange(status: OrderStatusEnum): string {
     switch (status) {
       case OrderStatusEnum.CONFIRMED:
         return 'This order has been Confirmed';
@@ -572,8 +681,21 @@ export class OrderService extends BaseService<Order> {
     action_performed_by: UserRole;
     request_method: RequestMethod;
   }) {
-    return this.prisma.activityLogs.create({
+    return this.prisma.orderActivityLogs.create({
       data,
     });
   }
+
+  private validTransition: Record<OrderStatusEnum, OrderStatusEnum[]> = {
+    [OrderStatusEnum.PENDING]: [
+      OrderStatusEnum.CONFIRMED,
+      OrderStatusEnum.CANCELLED,
+    ],
+    [OrderStatusEnum.CONFIRMED]: [
+      OrderStatusEnum.CANCELLED,
+      OrderStatusEnum.COMPLETED,
+    ],
+    [OrderStatusEnum.CANCELLED]: [],
+    [OrderStatusEnum.COMPLETED]: [],
+  };
 }
